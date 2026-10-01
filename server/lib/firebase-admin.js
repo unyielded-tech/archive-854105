@@ -1,4 +1,5 @@
-import admin from 'firebase-admin'
+import { initializeApp, getApps, cert } from 'firebase-admin/app'
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -40,8 +41,8 @@ function loadServiceAccount() {
 export function initializeFirebaseAdmin() {
   if (initialized) return db
 
-  if (admin.apps.length) {
-    db = admin.firestore()
+  if (getApps().length) {
+    db = getFirestore()
     initialized = true
     return db
   }
@@ -53,12 +54,12 @@ export function initializeFirebaseAdmin() {
     )
   }
 
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+  initializeApp({
+    credential: cert(serviceAccount),
     projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id,
   })
 
-  db = admin.firestore()
+  db = getFirestore()
   initialized = true
   return db
 }
@@ -67,4 +68,5 @@ export function getFirebaseDb() {
   return initializeFirebaseAdmin()
 }
 
-export { admin }
+// Compatibility shim so routes can keep using admin.firestore.FieldValue / Timestamp
+export const admin = { firestore: Object.assign(() => getFirestore(), { FieldValue, Timestamp }) }
