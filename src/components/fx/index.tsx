@@ -4,24 +4,20 @@ import { media } from '@/config/media'
 
 export function Preloader() {
   const [show, setShow] = useState(() => !sessionStorage.getItem('a854105'))
-  const n = useMotionValue(0)
-  const [pct, setPct] = useState(0)
   useEffect(() => {
     if (!show) return
-    const c = animate(n, 100, { duration: 2.2, ease: 'easeInOut', onUpdate: (v) => setPct(Math.round(v)),
-      onComplete: () => setTimeout(() => { sessionStorage.setItem('a854105', '1'); setShow(false) }, 250) })
-    return () => c.stop()
+    const t = setTimeout(() => { sessionStorage.setItem('a854105', '1'); setShow(false) }, 2400)
+    return () => clearTimeout(t)
   }, [])
   return (
     <AnimatePresence>
       {show && (
-        <motion.div exit={{ clipPath: 'inset(0 0 100% 0)' }} transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
-          className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center scan" style={{ clipPath: 'inset(0 0 0% 0)' }}>
-          <div className="font-street text-4xl md:text-7xl glitch" data-t="ARCHIVE">ARCHIVE</div>
-          <div className="outline-text font-street text-2xl md:text-4xl mt-2">854105</div>
-          <div className="eq mt-8"><i /><i /><i /><i /><i /></div>
-          <div className="absolute bottom-8 right-8 font-street text-6xl md:text-8xl text-[var(--gold)]">{pct}</div>
-          <div className="absolute bottom-0 left-0 h-1 bg-[var(--gold)]" style={{ width: pct + '%' }} />
+        <motion.div exit={{ opacity: 0 }} transition={{ duration: 1 }}
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-center" style={{ background: '#F7F4EF', color: '#111' }}>
+          <motion.div initial={{ opacity: 0, letterSpacing: '0.2em' }} animate={{ opacity: 1, letterSpacing: '0.55em' }} transition={{ duration: 1.8, ease: 'easeOut' }}
+            className="serif text-3xl md:text-5xl pl-[0.55em]">ARCHIVE</motion.div>
+          <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.6, duration: 1.4 }} className="h-px w-24 bg-black my-5 origin-center" />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1, duration: 1 }} className="text-xs tracking-[0.5em] pl-[0.5em]">854105</motion.div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -50,7 +46,7 @@ export function CustomCursor() {
 export function ScrollProgress() {
   const { scrollYProgress } = useScroll()
   const s = useSpring(scrollYProgress, { stiffness: 120, damping: 24 })
-  return <motion.div className="fixed top-0 left-0 right-0 h-[3px] origin-left z-[120] bg-[var(--gold)]" style={{ scaleX: s }} />
+  return <motion.div className="fixed top-0 left-0 right-0 h-px origin-left z-[120] bg-black" style={{ scaleX: s }} />
 }
 
 export function Marquee({ items, reverse, className = '' }: { items: string[]; reverse?: boolean; className?: string }) {
@@ -115,9 +111,9 @@ export function Tilt({ children, className = '' }: { children: ReactNode; classN
 
 export function WhatsAppFab() {
   return (
-    <a href={`https://wa.me/${media.whatsapp}?text=${encodeURIComponent('Hi ARCHIVE 854105, I want to order')}`} target="_blank" rel="noreferrer"
-      className="fixed bottom-5 right-5 z-[110] w-14 h-14 rounded-full bg-[#25D366] text-black flex items-center justify-center shadow-2xl font-street text-xs floaty" aria-label="Order on WhatsApp">
-      CHAT
+    <a href={`https://wa.me/${media.whatsapp}?text=${encodeURIComponent('Hello ARCHIVE 854105, I would like to order')}`} target="_blank" rel="noreferrer"
+      className="fixed bottom-5 right-5 z-[110] bg-black text-[#F7F4EF] px-5 py-3 text-[0.65rem] tracking-[0.25em] uppercase" aria-label="Order on WhatsApp">
+      WhatsApp
     </a>
   )
 }
