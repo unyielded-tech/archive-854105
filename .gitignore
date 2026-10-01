@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# Build outputs
+dist/
+build/
+.tsc-out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Private keys
+serviceAccountKey.json
+*.pem
+*.key
+
+# Cache
+.cache/
+.eslintcache
+
+# Testing
+coverage/
+.nyc_output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite
+.vite/
+
+# Firebase
+.firebase/
+.firebaserc
+
+# Admin SDK
+firebase-admin-sdk.json
+
+# Local Firebase Admin credentials
+firebase-service-account.json
+serviceAccountKey.json
+.env

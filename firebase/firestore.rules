@@ -1,0 +1,155 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      // Admin auth is handled server-side
+      // Firestore rules should not give admin powers based on client auth
+      return false;
+    }
+    
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    function isPublished(doc) {
+      return doc.published == true;
+    }
+    
+    // ============================================
+    // PUBLIC COLLECTIONS (Read-only)
+    // ============================================
+    
+    // Products
+    match /products/{productId} {
+      allow read: if isPublished(resource.data);
+      allow write: if false; // Admin-only via server
+    }
+    
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if isPublished(resource.data);
+      allow write: if false;
+    }
+    
+    // Collections
+    match /collections/{collectionId} {
+      allow read: if isPublished(resource.data);
+      allow write: if false;
+    }
+    
+    // Articles/Journal
+    match /articles/{articleId} {
+      allow read: if isPublished(resource.data);
+      allow write: if false;
+    }
+    
+    // Lookbooks
+    match /lookbooks/{lookbookId} {
+      allow read: if isPublished(resource.data);
+      allow write: if false;
+    }
+    
+    // Pages
+    match /pages/{pageId} {
+      allow read: if isPublished(resource.data);
+      allow write: if false;
+    }
+    
+    // Settings
+    match /settings/{document=**} {
+      allow read: if true; // Public settings
+      allow write: if false;
+    }
+    
+    // ============================================
+    // USER COLLECTIONS
+    // ============================================
+    
+    // Users can read their own profile
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+      
+      // User addresses subcollection
+      match /addresses/{addressId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+      
+      // User wishlist subcollection
+      match /wishlist/{itemId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+    }
+    
+    // ============================================
+    // ORDER COLLECTION
+    // ============================================
+    
+    match /orders/{orderId} {
+      // Customers can read their own orders
+      allow read: if isOwner(resource.data.customerId);
+      
+      // Customers can create orders (with server validation)
+      allow create: if isOwner(request.resource.data.customerId) 
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == now;
+      
+      // Server-side updates only (via Cloud Function or server logic)
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // PROTECTED COLLECTIONS (Server-only)
+    // ============================================
+    
+    // Admins - Never accessible via client
+    match /admins/{adminId} {
+      allow read: if false;
+      allow write: if false;
+    }
+    
+    // Coupons - Validate and read only
+    match /coupons/{couponId} {
+      allow read: if resource.data.active == true 
+        && resource.data.startDate <= now 
+        && resource.data.endDate >= now;
+      allow write: if false;
+    }
+    
+    // Audit logs - Append only via server
+    match /auditLogs/{logId} {
+      allow read: if false; // Server-side only
+      allow create: if false; // Server creates
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // Analytics - Append only
+    match /analytics/{eventId} {
+      allow read: if false;
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // CATCH-ALL (Deny everything else)
+    // ============================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
