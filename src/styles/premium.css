@@ -31,3 +31,10 @@
 @keyframes marq{to{transform:translateX(-100%)}}
 .spin-slow{animation:spin 30s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+html,body{max-width:100%;overflow-x:hidden}
+.storefront h1,.storefront h2,.storefront h3{color:inherit}
+.storefront header .font-display{font-size:1.15rem;letter-spacing:.22em;line-height:1.1}
+@media(min-width:768px){.storefront header .font-display{font-size:1.9rem;letter-spacing:.35em}}
+.storefront header nav a,.storefront header nav button{flex-shrink:0}
+.storefront .container{padding-left:1.25rem;padding-right:1.25rem}

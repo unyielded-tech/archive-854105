@@ -37,7 +37,7 @@ export function Header() {
       </div>
 
       {/* Main Header */}
-      <nav className="container py-4 md:py-6">
+      <nav className="container py-3 md:py-6">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex-shrink-0">
@@ -61,7 +61,7 @@ export function Header() {
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-4 md:gap-6">
+          <div className="flex items-center gap-0 md:gap-6">
             {/* Search */}
             <button
               onClick={() => setSearchOpen(!searchOpen)}

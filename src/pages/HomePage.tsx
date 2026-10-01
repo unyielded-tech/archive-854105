@@ -38,18 +38,18 @@ export function HomePage() {
 
   return (
     <MainLayout>
-      <section className="relative h-[92vh] overflow-hidden bg-[#EDE8E0]">
+      <section className={`relative h-[85svh] md:h-[92vh] overflow-hidden bg-[#EDE8E0] ${first ? 'text-[#F7F4EF]' : 'text-[#111]'}`}>
         {media.heroVideo
           ? <video src={media.heroVideo} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover" />
           : first && <motion.img style={{ y: heroY }} src={first} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
-        <div className="absolute bottom-0 inset-x-0 px-6 md:px-16 pb-14 text-[#F7F4EF]">
-          <h1 className="serif text-5xl md:text-8xl leading-[1.05]">
+        {first && <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />}
+        <div className="absolute bottom-0 inset-x-0 px-5 md:px-16 pb-12">
+          <h1 className="serif text-5xl sm:text-6xl md:text-8xl leading-[1.05]">
             <span className="reveal-line"><span>The New</span></span>
             <span className="reveal-line"><span style={{ animationDelay: '.2s' }}><em>Collection</em></span></span>
           </h1>
           <div className="fade-in mt-8 flex gap-6 items-center">
-            <Link to="/shop" className="btn bg-[#F7F4EF] text-black hover:bg-transparent hover:text-[#F7F4EF] border border-[#F7F4EF]">Discover</Link>
+            <Link to="/shop" className={`btn border ${first ? 'bg-[#F7F4EF] text-black border-[#F7F4EF]' : 'btn-primary'}`}>Discover</Link>
             <Link to="/collections" className="underline-grow text-xs tracking-[0.25em] uppercase">Lookbook</Link>
           </div>
         </div>
@@ -60,7 +60,7 @@ export function HomePage() {
       </div>
 
       {collections.length > 0 && (
-        <section className="px-6 md:px-16 py-24 md:py-36">
+        <section className="px-5 md:px-16 py-24 md:py-36">
           <h2 className="serif text-4xl md:text-6xl text-center mb-16">Collections</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {collections.map((c, idx) => (
@@ -76,7 +76,7 @@ export function HomePage() {
       )}
 
       {featuredProducts.length > 0 && (
-        <section className="px-6 md:px-16 pb-24 md:pb-36">
+        <section className="px-5 md:px-16 pb-24 md:pb-36">
           <h2 className="serif text-4xl md:text-6xl text-center mb-16">Featured</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-12">
             {featuredProducts.map((p, idx) => (
@@ -88,7 +88,7 @@ export function HomePage() {
         </section>
       )}
 
-      <section className="px-6 md:px-16 py-24 border-t border-black/10 grid md:grid-cols-2 gap-12 items-center">
+      <section className="px-5 md:px-16 py-24 border-t border-black/10 grid md:grid-cols-2 gap-12 items-center">
         <div>
           <h2 className="serif text-4xl md:text-6xl mb-6">Visit the Store</h2>
           <p className="text-lg mb-2">{media.address}</p>
