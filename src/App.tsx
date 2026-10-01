@@ -11,6 +11,7 @@ import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { AccountPage } from '@/pages/AccountPage'
 import { CollectionsPage } from '@/pages/CollectionsPage'
+import { ContactPage } from '@/pages/ContactPage'
 import { AboutPage } from '@/pages/AboutPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { CustomerAuthPage } from '@/pages/CustomerAuthPage'
@@ -58,6 +59,7 @@ export function App() {
         <Route path="/login" element={<CustomerAuthPage />} />
         <Route path="/register" element={<CustomerAuthPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/about" element={<AboutPage />} />
 
         {/* Admin Routes: served on Vercel via the /api serverless function. */}

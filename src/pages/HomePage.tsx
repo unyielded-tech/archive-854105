@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Marquee, Magnetic, SplitText, Sticker, Tilt } from '@/components/fx'
+import { StoreMap } from '@/components/StoreMap'
 import { media } from '@/config/media'
 import { MainLayout } from '@/layouts/MainLayout'
 import { getProducts, getCollections } from '@/services/firestore'
@@ -99,6 +100,7 @@ export function HomePage() {
         <div className="blob w-[40vw] h-[40vw] bg-[var(--gold)] left-1/3 top-0" style={{ opacity: 0.25 }} />
         <h2 className="relative text-5xl md:text-9xl outline-text">VISIT THE STORE</h2>
         <p className="relative mt-6 text-xl">{media.address}</p>
+        <div className="relative mt-10 max-w-5xl mx-auto text-left"><StoreMap /></div>
         <div className="relative mt-8 flex justify-center gap-4 flex-wrap">
           <Magnetic><a href={`https://wa.me/${media.whatsapp}`} target="_blank" rel="noreferrer" className="btn btn-primary btn-lg inline-block">WhatsApp {media.phone}</a></Magnetic>
           <Magnetic><a href={`tel:+${media.whatsapp}`} className="btn btn-lg inline-block border border-[var(--bone)]/40">Call now</a></Magnetic>

@@ -55,19 +55,12 @@ export function AboutPage() {
         {/* Contact */}
         <div className="py-12">
           <h2 className="text-h3 font-display mb-8 text-center">Get In Touch</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <Mail className="mx-auto mb-4 text-gold" size={32} />
-              <h3 className="font-semibold mb-2">Email</h3>
-              <a href="mailto:hello@archive854105.com" className="text-medium-grey hover:underline">
-                hello@archive854105.com
-              </a>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="text-center">
               <Phone className="mx-auto mb-4 text-gold" size={32} />
               <h3 className="font-semibold mb-2">Phone</h3>
-              <a href="tel:+919000000000" className="text-medium-grey hover:underline">
-                +91 90000 00000
+              <a href="tel:+917033077553" className="text-medium-grey hover:underline">
+                +91 70330 77553
               </a>
             </div>
             <div className="text-center">

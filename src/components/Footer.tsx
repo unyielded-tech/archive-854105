@@ -9,8 +9,8 @@ export function Footer() {
           {/* Brand */}
           <div>
             <h2 className="text-h6 font-display mb-4">ARCHIVE 854105</h2>
-            <p className="text-body-sm text-soft-grey">Premium luxury streetwear for the modern individual.</p>
-            <p className="text-body-sm text-soft-grey mt-4">© 2024 ARCHIVE 854105. All rights reserved.</p>
+            <p className="text-body-sm text-soft-grey">Premium streetwear. New Market, Katihar, Bihar — in front of City Kart.</p>
+            <p className="text-body-sm text-soft-grey mt-4">© 2026 ARCHIVE 854105. All rights reserved.</p>
           </div>
 
           {/* Shop */}
@@ -39,35 +39,15 @@ export function Footer() {
               <Link to="/about" className="text-body-sm text-soft-grey hover:text-white transition block">
                 About Us
               </Link>
-              <a href="#" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Journal
-              </a>
-              <a href="#" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Lookbook
-              </a>
-              <a href="#" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Press
-              </a>
-            </nav>
+              </nav>
           </div>
 
           {/* Support */}
           <div>
             <h3 className="text-h6 font-semibold uppercase tracking-wider mb-4">Support</h3>
             <nav className="space-y-2">
-              <a href="#" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Contact Us
-              </a>
-              <a href="#" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Shipping & Returns
-              </a>
-              <a href="#" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Size Guide
-              </a>
-              <a href="#" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Privacy Policy
-              </a>
-            </nav>
+              <Link to="/contact" className="text-body-sm text-soft-grey hover:text-white transition block">Contact Us</Link>
+              </nav>
           </div>
         </div>
 
@@ -89,13 +69,9 @@ export function Footer() {
           {/* Contact & Social */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 pt-8 border-t border-soft-grey">
             <div className="flex gap-6">
-              <a href="mailto:hello@archive854105.com" className="flex items-center gap-2 text-body-sm text-soft-grey hover:text-white transition">
-                <Mail size={16} />
-                hello@archive854105.com
-              </a>
-              <a href="tel:+919000000000" className="flex items-center gap-2 text-body-sm text-soft-grey hover:text-white transition">
+              <a href="tel:+917033077553" className="flex items-center gap-2 text-body-sm text-soft-grey hover:text-white transition">
                 <Phone size={16} />
-                +91 90000 00000
+                +91 70330 77553
               </a>
             </div>
 
