@@ -28,6 +28,7 @@ export interface StoreOrder {
   address: { fullName: string; phoneNumber: string; street: string; landmark?: string; city: string; state: string; pincode: string }
   customer: { name: string; phone: string; email?: string }
   timeline: { status: string; timestamp: string }[]
+  cancelReason?: string
   createdAt: string
 }
 
@@ -40,7 +41,7 @@ export interface PlaceOrderInput {
   notes?: string
 }
 
-async function authHeader(): Promise<Record<string, string>> {
+export async function authHeader(): Promise<Record<string, string>> {
   try {
     const { data } = await getSupabase().auth.getSession()
     const token = data.session?.access_token
@@ -73,6 +74,19 @@ export async function trackOrder(orderId: string, phone: string): Promise<StoreO
 export async function getMyOrders(): Promise<StoreOrder[]> {
   const data = await read(await fetch('/api/store/orders/mine', { headers: await authHeader() }))
   return data.orders || []
+}
+
+export async function getMyOrder(orderId: string): Promise<StoreOrder> {
+  return read(await fetch(`/api/store/orders/mine/${encodeURIComponent(orderId)}`, { headers: await authHeader() }))
+}
+
+export async function cancelOrder(orderId: string, opts: { phone?: string; reason?: string }): Promise<StoreOrder> {
+  const res = await fetch('/api/store/orders/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ orderId, phone: opts.phone || '', reason: opts.reason || '' }),
+  })
+  return read(res)
 }
 
 export const LAST_ORDER_KEY = 'archive-last-order'

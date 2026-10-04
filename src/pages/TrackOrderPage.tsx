@@ -34,7 +34,7 @@ export function TrackOrderPage() {
           {error && <p style={{ color: '#b3261e', fontSize: '.85rem', margin: '10px 0 0' }}>{error}</p>}
         </form>
 
-        {order && <OrderView order={order} />}
+        {order && <OrderView order={order} phone={phone} onUpdated={setOrder} />}
       </div>
     </MainLayout>
   )

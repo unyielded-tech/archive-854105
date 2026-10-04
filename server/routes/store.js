@@ -79,14 +79,14 @@ storeRoutes.post('/customers/sync', async (req, res) => {
     const { data, error } = await initializeFirebaseAdmin().auth.getUser(token)
     if (error || !data?.user) return res.status(401).json({ success: false })
     const u = data.user
-    await db().collection('users').doc(u.id).set({
-      email: u.email,
-      displayName: u.user_metadata?.displayName || '',
-      role: 'customer',
-      updatedAt: new Date(),
-    }, { merge: true })
-    const ref = await db().collection('users').doc(u.id).get()
-    if (!ref.data().createdAt) await db().collection('users').doc(u.id).update({ createdAt: new Date() })
+    const ref = db().collection('users').doc(u.id)
+    const existing = (await ref.get()).data() || {}
+    const meta = u.user_metadata || {}
+    const patch = { email: u.email, role: 'customer', updatedAt: new Date().toISOString() }
+    if (!existing.displayName) patch.displayName = meta.displayName || ''
+    if (!existing.phone && meta.phone) { patch.phone = String(meta.phone); patch.phoneNumber = String(meta.phone) }
+    if (!existing.createdAt) patch.createdAt = new Date().toISOString()
+    await ref.set(patch, { merge: true })
     res.json({ success: true })
   } catch (e) {
     console.error('sync error:', e.message)

@@ -79,6 +79,7 @@ const publicOrder = (o) => ({
   address: o.address,
   customer: o.customer,
   timeline: (o.timeline || []).map((t) => ({ status: t.status, timestamp: t.timestamp })),
+  cancelReason: o.cancelReason || '',
   createdAt: o.createdAt,
 })
 
@@ -234,24 +235,94 @@ router.get('/mine', async (req, res) => {
   try {
     const user = await userFromToken(req)
     if (!user) return res.status(401).json({ error: 'Please sign in' })
-
-    const byId = await db().collection('orders').where('customerId', '==', user.id).get()
-    const byEmail = user.email
-      ? await db().collection('orders').where('customerEmail', '==', user.email.toLowerCase()).get()
-      : { docs: [] }
-
-    const seen = new Set()
-    const orders = []
-    for (const d of [...byId.docs, ...byEmail.docs]) {
-      if (seen.has(d.id)) continue
-      seen.add(d.id)
-      orders.push(publicOrder(d.data()))
-    }
-    orders.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-    res.json({ orders: orders.slice(0, 50) })
+    const rows = await ordersOf(user)
+    res.json({ orders: rows.slice(0, 100).map((r) => publicOrder(r.data)) })
   } catch (error) {
     console.error('My orders error:', error)
     res.status(500).json({ error: 'Could not load your orders' })
+  }
+})
+
+const CANCELLABLE = ['pending', 'confirmed', 'processing', 'packed']
+
+async function ordersOf(user) {
+  const byId = await db().collection('orders').where('customerId', '==', user.id).get()
+  const byEmail = user.email
+    ? await db().collection('orders').where('customerEmail', '==', user.email.toLowerCase()).get()
+    : { docs: [] }
+  const seen = new Set()
+  const rows = []
+  for (const d of [...byId.docs, ...byEmail.docs]) {
+    if (seen.has(d.id)) continue
+    seen.add(d.id)
+    rows.push({ id: d.id, data: d.data() })
+  }
+  rows.sort((a, b) => String(b.data.createdAt).localeCompare(String(a.data.createdAt)))
+  return rows
+}
+
+// GET /api/store/orders/mine/:orderId  (signed-in customer)
+router.get('/mine/:orderId', async (req, res) => {
+  try {
+    const user = await userFromToken(req)
+    if (!user) return res.status(401).json({ error: 'Please sign in' })
+    const row = (await ordersOf(user)).find((r) => r.data.orderId === String(req.params.orderId).toUpperCase())
+    if (!row) return res.status(404).json({ error: 'Order not found' })
+    res.json(publicOrder(row.data))
+  } catch (error) {
+    console.error('My order error:', error)
+    res.status(500).json({ error: 'Could not load the order' })
+  }
+})
+
+// POST /api/store/orders/cancel  { orderId, phone?, reason? }
+// Signed-in owners need no phone; guests prove ownership with the phone number on the order.
+router.post('/cancel', async (req, res) => {
+  try {
+    if (limited(`c${req.ip}`)) return res.status(429).json({ error: 'Too many tries. Please wait a few minutes.' })
+    const orderId = str(req.body?.orderId, 40).toUpperCase()
+    const reason = str(req.body?.reason, 200)
+    if (!orderId) return res.status(400).json({ error: 'Missing order number' })
+
+    const snap = await db().collection('orders').where('orderId', '==', orderId).limit(1).get()
+    if (snap.empty) return res.status(404).json({ error: 'Order not found' })
+    const doc = snap.docs[0]
+    const o = doc.data()
+
+    const user = await userFromToken(req)
+    const owner = user && (o.customerId === user.id || (user.email && o.customerEmail === user.email.toLowerCase()))
+    const phoneOk = last10(req.body?.phone).length === 10 && last10(o.customer?.phone) === last10(req.body?.phone)
+    if (!owner && !phoneOk) return res.status(403).json({ error: 'We could not verify this order' })
+
+    if (!CANCELLABLE.includes(o.status)) {
+      return res.status(409).json({ error: o.status === 'cancelled' ? 'This order is already cancelled' : 'This order has already been shipped and cannot be cancelled. Contact us for a return.' })
+    }
+
+    const now = new Date().toISOString()
+    for (const it of o.items || []) {
+      if (!it.productId) continue
+      try {
+        const ref = db().collection('products').doc(it.productId)
+        const p = await ref.get()
+        if (p.exists && typeof p.data().stock === 'number') {
+          await ref.update({ stock: admin.firestore.FieldValue.increment(Number(it.quantity) || 0) })
+        }
+      } catch (e) { console.error('restore stock failed', it.productId, e.message) }
+    }
+
+    await doc.ref.update({
+      status: 'cancelled',
+      cancelReason: reason,
+      cancelledBy: 'customer',
+      updatedAt: now,
+      timeline: admin.firestore.FieldValue.arrayUnion({ status: 'cancelled', timestamp: now, note: reason ? `Cancelled by customer: ${reason}` : 'Cancelled by customer' }),
+    })
+
+    const fresh = await doc.ref.get()
+    res.json(publicOrder(fresh.data()))
+  } catch (error) {
+    console.error('Cancel order error:', error)
+    res.status(500).json({ error: 'Could not cancel the order' })
   }
 })
 

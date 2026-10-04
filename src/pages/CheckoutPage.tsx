@@ -5,6 +5,8 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { useCartStore } from '@/store/cartStore'
 import { applyCoupon } from '@/services/firestore'
 import { placeOrder, LAST_ORDER_KEY } from '@/services/orders'
+import { getAccount, addAddress, type SavedAddress } from '@/services/account'
+import { useCustomer } from '@/lib/useCustomer'
 import { inr, imageOf, couponDiscount, shippingFor, SHIPPING } from '@/lib/format'
 import type { Coupon } from '@/types'
 import '@/styles/store.css'
@@ -24,6 +26,10 @@ export function CheckoutPage() {
   const [method, setMethod] = useState<'standard' | 'express'>('standard')
   const [coupon, setCoupon] = useState<Coupon | null>(null)
   const [busy, setBusy] = useState(false)
+  const { user } = useCustomer()
+  const [saved, setSaved] = useState<SavedAddress[]>([])
+  const [pick, setPick] = useState('')
+  const [saveAddr, setSaveAddr] = useState(true)
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
 
@@ -36,7 +42,25 @@ export function CheckoutPage() {
   const shipping = shippingFor(subtotal - discount, method)
   const total = subtotal - discount + shipping
 
-  const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k: keyof Form, v: string) => {
+    if (k === 'street' || k === 'pincode') setPick('')
+    setForm((f) => ({ ...f, [k]: v }))
+  }
+  const fill = (a: SavedAddress) => {
+    setPick(a.id)
+    setForm((f) => ({ ...f, name: a.name, phone: a.phone, street: a.street, landmark: a.landmark, city: a.city, state: a.state, pincode: a.pincode }))
+  }
+
+  // Signed-in shoppers get their profile and saved addresses filled in.
+  useEffect(() => {
+    if (!user) return
+    getAccount().then(({ profile, addresses }) => {
+      setSaved(addresses)
+      setForm((f) => ({ ...f, name: f.name || profile.displayName, phone: f.phone || profile.phone, email: f.email || profile.email }))
+      const def = addresses.find((a) => a.isDefault) || addresses[0]
+      if (def && !form.street) fill(def)
+    }).catch(() => {})
+  }, [user?.uid])
 
   if (items.length === 0) {
     return (
@@ -70,6 +94,9 @@ export function CheckoutPage() {
         localStorage.setItem(SAVED_KEY, JSON.stringify({ ...form, phone }))
         sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify({ orderId: res.orderId, phone }))
       } catch { /* storage may be blocked */ }
+      if (user && saveAddr && !pick) {
+        addAddress({ label: 'Home', name: form.name.trim(), phone, street: form.street.trim(), landmark: form.landmark.trim(), city: form.city.trim(), state: form.state.trim(), pincode: form.pincode.replace(/\D/g, ''), isDefault: saved.length === 0 }).catch(() => {})
+      }
       clearCart()
       navigate(`/order-confirmation/${res.orderId}`, { replace: true })
     } catch (e: any) {
@@ -104,7 +131,18 @@ export function CheckoutPage() {
 
             <div className="sec-box">
               <h2>Delivery address</h2>
-              <label className="st-label">Address</label>
+              {saved.length > 0 && (
+                <>
+                  <label className="st-label">Choose a saved address</label>
+                  {saved.map((a) => (
+                    <label key={a.id} className={`opt ${pick === a.id ? 'on' : ''}`} style={{ alignItems: 'flex-start' }}>
+                      <input type="radio" name="saved" checked={pick === a.id} onChange={() => fill(a)} style={{ marginTop: 4 }} />
+                      <span style={{ lineHeight: 1.45 }}><b style={{ fontWeight: 500 }}>{a.label}</b> · {a.name}<br />{a.street}, {a.city} {a.pincode}</span>
+                    </label>
+                  ))}
+                </>
+              )}
+              <label className="st-label">{saved.length > 0 ? 'Or enter an address' : 'Address'}</label>
               <textarea className="st-input" value={form.street} onChange={(e) => set('street', e.target.value)} placeholder="House no, street, area" autoComplete="street-address" />
               <label className="st-label">Landmark (optional)</label>
               <input className="st-input" value={form.landmark} onChange={(e) => set('landmark', e.target.value)} />
@@ -120,6 +158,11 @@ export function CheckoutPage() {
               </div>
               <label className="st-label">Pincode</label>
               <input className="st-input" inputMode="numeric" maxLength={6} value={form.pincode} onChange={(e) => set('pincode', e.target.value)} autoComplete="postal-code" />
+              {user ? (
+                !pick && <label className="opt" style={{ marginTop: 12 }}><input type="checkbox" checked={saveAddr} onChange={(e) => setSaveAddr(e.target.checked)} /><span>Save this address to my account</span></label>
+              ) : (
+                <p className="st-sub" style={{ fontSize: '.76rem', margin: '10px 0 0' }}><Link to="/login" style={{ textDecoration: 'underline' }}>Sign in</Link> to use saved addresses and track orders in your account.</p>
+              )}
             </div>
 
             <div className="sec-box">

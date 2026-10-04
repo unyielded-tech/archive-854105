@@ -119,6 +119,8 @@ export function AdminOrders() {
                       <div className="adm-line" style={{ padding: '4px 0', border: 0 }}><b>Total to collect</b><b>{money(o.total)}</b></div>
                     </div>
 
+                    {o.cancelReason && <p className="adm-meta" style={{ marginTop: 10 }}>Cancelled by customer: {o.cancelReason}</p>}
+
                     <label className="adm-label">Deliver to</label>
                     <p style={{ margin: 0, lineHeight: 1.5 }}>
                       {o.address?.fullName || o.customer?.name}<br />

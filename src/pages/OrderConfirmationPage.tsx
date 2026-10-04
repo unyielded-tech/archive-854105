@@ -11,12 +11,13 @@ export function OrderConfirmationPage() {
   const [order, setOrder] = useState<StoreOrder | null>(null)
   const [error, setError] = useState('')
   const [phone, setPhone] = useState('')
+  const [verifiedPhone, setVerifiedPhone] = useState('')
   const [loading, setLoading] = useState(true)
 
   const load = async (id: string, ph: string) => {
     setLoading(true)
     setError('')
-    try { setOrder(await trackOrder(id, ph)) } catch (e: any) { setError(e?.message || 'Could not load the order') } finally { setLoading(false) }
+    try { setOrder(await trackOrder(id, ph)); setVerifiedPhone(ph) } catch (e: any) { setError(e?.message || 'Could not load the order') } finally { setLoading(false) }
   }
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export function OrderConfirmationPage() {
         {loading ? (
           <div className="st-empty">Loading your order…</div>
         ) : order ? (
-          <OrderView order={order} />
+          <OrderView order={order} phone={verifiedPhone} onUpdated={setOrder} />
         ) : (
           <div className="sec-box">
             <p style={{ margin: '0 0 6px' }}>Your order number is <b style={{ fontWeight: 500 }}>{orderId}</b>. Save it to track your order.</p>

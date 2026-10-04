@@ -20,6 +20,7 @@ import adminAuditRoutes from './routes/admin-audit.js'
 import adminUploadsRoutes from './routes/admin-uploads.js'
 import adminBannerRoutes from './routes/admin-banner.js'
 import storeOrdersRoutes from './routes/store-orders.js'
+import storeAccountRoutes from './routes/store-account.js'
 
 const app = express()
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
@@ -46,6 +47,7 @@ app.get('/api/health/db', async (_req, res) => {
 })
 
 app.use('/api/store/orders', storeOrdersRoutes)
+app.use('/api/store/me', storeAccountRoutes)
 app.use('/api/store', storeRoutes)
 app.use('/api/admin/auth', adminAuthRoutes)
 app.use('/api/admin/products', adminProductsRoutes)

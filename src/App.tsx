@@ -10,6 +10,8 @@ import { ProductPage } from '@/pages/ProductPage'
 import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { AccountPage } from '@/pages/AccountPage'
+import { AccountOrdersPage, AccountOrderDetailPage } from '@/pages/AccountOrdersPage'
+import { AccountProfilePage, AccountAddressesPage, AccountSecurityPage } from '@/pages/AccountSettingsPages'
 import { CollectionsPage } from '@/pages/CollectionsPage'
 import { ContactPage } from '@/pages/ContactPage'
 import { AboutPage } from '@/pages/AboutPage'
@@ -64,6 +66,11 @@ export function App() {
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/account/orders" element={<AccountOrdersPage />} />
+        <Route path="/account/orders/:orderId" element={<AccountOrderDetailPage />} />
+        <Route path="/account/profile" element={<AccountProfilePage />} />
+        <Route path="/account/addresses" element={<AccountAddressesPage />} />
+        <Route path="/account/security" element={<AccountSecurityPage />} />
         <Route path="/login" element={<CustomerAuthPage />} />
         <Route path="/register" element={<CustomerAuthPage />} />
         <Route path="/collections" element={<CollectionsPage />} />

@@ -35,10 +35,10 @@ async function syncProfile(accessToken?: string) {
   } catch { /* non-critical */ }
 }
 
-export async function registerCustomer(email: string, password: string, displayName: string) {
+export async function registerCustomer(email: string, password: string, displayName: string, phone = '') {
   try {
     const { data, error } = await getSupabase().auth.signUp({
-      email: email.trim(), password, options: { data: { displayName: displayName.trim() } },
+      email: email.trim(), password, options: { data: { displayName: displayName.trim(), phone } },
     })
     if (error) throw error
     if (!data.user) throw new Error('Sign up failed')

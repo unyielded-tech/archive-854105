@@ -1,16 +1,18 @@
 import { MainLayout } from '@/layouts/MainLayout'
 import { StoreMap, ContactBlock } from '@/components/StoreMap'
+import '@/styles/store.css'
 
 export function ContactPage() {
   return (
     <MainLayout>
-      <section className="px-5 md:px-12 pt-32 pb-20 grid md:grid-cols-2 gap-10">
-        <div>
-          <h1 className="text-5xl md:text-8xl mb-8">Visit us</h1>
+      <div className="st-wrap" style={{ paddingTop: 16, paddingBottom: 36 }}>
+        <h1 className="st-page-title">Visit us</h1>
+        <p className="st-sub" style={{ marginBottom: 14 }}>Come and try the pieces in person. We are right in front of City Kart.</p>
+        <div style={{ display: 'grid', gap: 18 }}>
           <ContactBlock />
+          <StoreMap height={380} />
         </div>
-        <StoreMap height={460} />
-      </section>
+      </div>
     </MainLayout>
   )
 }
