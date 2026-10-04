@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import { useAdminStore } from '@/store/adminStore'
 import { adminLogin } from '@/services/api'
-import toast from 'react-hot-toast'
+import { adminToastOptions } from '@/components/admin/AdminShell'
+import '@/styles/admin.css'
 
 export function AdminLogin() {
   const navigate = useNavigate()
@@ -17,10 +20,9 @@ export function AdminLogin() {
 
     try {
       const result = await adminLogin({ email, password })
-      
+
       if (result.success && result.user) {
-        setUser(result.user)
-        toast.success('Logged in successfully')
+        setUser(result.user as any)
         navigate('/admin/dashboard')
       } else {
         toast.error(result.message || 'Login failed')
@@ -33,62 +35,38 @@ export function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="w-full max-w-md px-6">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-display font-bold tracking-widest mb-2">
-            ARCHIVE
-          </h1>
-          <p className="text-sm tracking-wider text-medium-grey">Admin Portal</p>
-        </div>
+    <div className="adm adm-login">
+      <div className="adm-login-box">
+        <span className="adm-brand">Archive</span>
+        <p className="adm-sub">Admin</p>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-medium-grey rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-              placeholder="Admin email"
-            />
-          </div>
+        <form onSubmit={handleSubmit}>
+          <label className="adm-label" style={{ marginTop: 0 }}>Email</label>
+          <input
+            className="adm-in"
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-          <div>
-            <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-medium-grey rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
-              placeholder="••••••••"
-            />
-          </div>
+          <label className="adm-label">Password</label>
+          <input
+            className="adm-in"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-black text-white py-3 font-semibold uppercase tracking-wider rounded-md hover:bg-charcoal disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
+          <button className="adm-btn block" style={{ marginTop: 24 }} type="submit" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-medium-grey">
-            This is a secure admin area. Unauthorized access is prohibited.
-          </p>
-        </div>
       </div>
+      <Toaster position="top-center" toastOptions={adminToastOptions} />
     </div>
   )
 }

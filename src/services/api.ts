@@ -46,7 +46,7 @@ async function apiFetch<T>(
       message: response.statusText,
     }))
     throw {
-      message: error.message || 'API Error',
+      message: error.message || error.error || 'API Error',
       status: response.status,
     } as ApiError
   }
@@ -117,8 +117,8 @@ export async function getAdminProducts(filters?: {
 }
 
 export async function createProduct(
-  product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>
-): Promise<Product> {
+  product: Record<string, unknown>
+): Promise<{ id: string; slug?: string; message: string }> {
   return apiFetch('/admin/products', {
     method: 'POST',
     body: JSON.stringify(product),
@@ -127,8 +127,8 @@ export async function createProduct(
 
 export async function updateProduct(
   id: string,
-  updates: Partial<Product>
-): Promise<Product> {
+  updates: Record<string, unknown>
+): Promise<{ message: string }> {
   return apiFetch(`/admin/products/${id}`, {
     method: 'PUT',
     body: JSON.stringify(updates),
@@ -166,10 +166,10 @@ export async function updateOrderStatus(
   id: string,
   status: string,
   note?: string
-): Promise<Order> {
-  return apiFetch(`/admin/orders/${id}/status`, {
+): Promise<{ message: string }> {
+  return apiFetch(`/admin/orders/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ status, note }),
+    body: JSON.stringify({ status, notes: note }),
   })
 }
 
