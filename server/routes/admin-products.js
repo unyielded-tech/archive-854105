@@ -141,7 +141,7 @@ router.post('/', requireRole(['admin', 'owner']), async (req, res) => {
       published: b.published === true,
       stock,
       lowStockThreshold: 5,
-      featured: false,
+      featured: b.featured === true,
       newArrival: false,
       new: false,
       sale: salePrice !== null,

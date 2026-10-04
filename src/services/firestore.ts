@@ -47,6 +47,8 @@ export const getLookbookBySlug = (slug: string) => one<Lookbook>(`/lookbooks/${e
 export const getArticles = (limit?: number) => many<JournalArticle>(`/articles${limit ? `?limit=${limit}` : ''}`)
 export const getArticleBySlug = (slug: string) => one<JournalArticle>(`/articles/${encodeURIComponent(slug)}`)
 export const getPageBySlug = (slug: string) => one<CMSPage>(`/pages/${encodeURIComponent(slug)}`)
+export interface HomeBannerData { type?: 'image' | 'video' | ''; url?: string; line1?: string; line2?: string }
+export const getHomeBanner = () => get<HomeBannerData>('/banner')
 export const getStoreSettings = () => one<StoreSettings>('/settings')
 
 export async function applyCoupon(code: string, orderTotal: number): Promise<Coupon | null> {

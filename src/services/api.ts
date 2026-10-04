@@ -135,6 +135,13 @@ export async function updateProduct(
   })
 }
 
+export async function uploadProductImage(dataUrl: string): Promise<{ url: string }> {
+  return apiFetch('/admin/uploads', {
+    method: 'POST',
+    body: JSON.stringify({ dataUrl }),
+  })
+}
+
 export async function deleteProduct(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/admin/products/${id}`, {
     method: 'DELETE',
@@ -367,5 +374,37 @@ export async function updateLookbook(
 export async function deleteLookbook(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/admin/lookbooks/${id}`, {
     method: 'DELETE',
+  })
+}
+
+
+// ============================================
+// HOMEPAGE BANNER
+// ============================================
+
+export interface HomeBanner {
+  type: 'image' | 'video' | ''
+  url: string
+  line1: string
+  line2: string
+}
+
+export async function getAdminBanner(): Promise<HomeBanner> {
+  return apiFetch('/admin/banner')
+}
+
+export async function saveAdminBanner(banner: HomeBanner): Promise<{ message: string }> {
+  return apiFetch('/admin/banner', {
+    method: 'PUT',
+    body: JSON.stringify(banner),
+  })
+}
+
+export async function getVideoUploadTarget(
+  contentType: string
+): Promise<{ path: string; token: string; publicUrl: string }> {
+  return apiFetch('/admin/uploads/video-url', {
+    method: 'POST',
+    body: JSON.stringify({ contentType }),
   })
 }

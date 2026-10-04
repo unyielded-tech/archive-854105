@@ -56,11 +56,11 @@ export function ProductPage() {
   }
 
   const handleAddToCart = () => {
-    if (!selectedSize) {
+    if (product.sizes.length > 0 && !selectedSize) {
       toast.error('Please select a size')
       return
     }
-    if (!selectedColor) {
+    if (product.colors.length > 0 && !selectedColor) {
       toast.error('Please select a color')
       return
     }
@@ -77,7 +77,9 @@ export function ProductPage() {
           {/* Images */}
           <div className="space-y-4">
             <div className="relative overflow-hidden bg-off-white aspect-square">
-              <motion.img key={primaryImageIdx} src={product.images[primaryImageIdx]?.url || primaryImage.url} alt={product.name} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full object-cover" />
+              {(product.images[primaryImageIdx]?.url || primaryImage?.url) && (
+                <motion.img key={primaryImageIdx} src={product.images[primaryImageIdx]?.url || primaryImage?.url} alt={product.name} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full object-cover" />
+              )}
             </div>
             {product.images.length > 1 && (
               <div className="grid grid-cols-4 gap-2">

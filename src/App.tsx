@@ -22,6 +22,7 @@ import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { AdminProducts } from '@/pages/admin/AdminProducts'
 import { AdminOrders } from '@/pages/admin/AdminOrders'
 import { AdminCustomers } from '@/pages/admin/AdminCustomers'
+import { AdminBanner } from '@/pages/admin/AdminBanner'
 import { AdminProtectedRoute } from '@/components/AdminProtectedRoute'
 
 export function App() {
@@ -71,6 +72,7 @@ export function App() {
             <Route path="/admin/products" element={<AdminProtectedRoute><AdminProducts /></AdminProtectedRoute>} />
             <Route path="/admin/orders" element={<AdminProtectedRoute><AdminOrders /></AdminProtectedRoute>} />
             <Route path="/admin/customers" element={<AdminProtectedRoute><AdminCustomers /></AdminProtectedRoute>} />
+            <Route path="/admin/banner" element={<AdminProtectedRoute><AdminBanner /></AdminProtectedRoute>} />
           </>
         )}
 

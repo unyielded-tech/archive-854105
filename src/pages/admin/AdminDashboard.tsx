@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAdminStore } from '@/store/adminStore'
 import { getDashboardStats } from '@/services/api'
 import { AdminShell } from '@/components/admin/AdminShell'
@@ -27,6 +28,9 @@ export function AdminDashboard() {
 
   return (
     <AdminShell title="Overview" subtitle={user?.email}>
+      <Link to="/admin/banner" className="adm-btn ghost block" style={{ marginBottom: 20, textDecoration: 'none' }}>
+        Edit homepage banner
+      </Link>
       {loading ? (
         <div className="adm-empty">Loading…</div>
       ) : failed ? (

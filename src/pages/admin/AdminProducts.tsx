@@ -1,9 +1,42 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { AdminShell } from '@/components/admin/AdminShell'
-import { getAdminProducts, createProduct, updateProduct, deleteProduct } from '@/services/api'
+import { getAdminProducts, createProduct, updateProduct, deleteProduct, uploadProductImage } from '@/services/api'
 
 const SIZE_PRESETS = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const MAX_IMAGES = 8
+
+// Shrinks a phone photo (usually 3-8 MB) to a web-sized JPEG before upload.
+async function compressImage(file: File): Promise<string> {
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error('This photo type is not supported. Use JPG, PNG or WebP.'))
+      i.src = url
+    })
+    let scale = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight))
+    let quality = 0.82
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale))
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Could not read this photo')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const out = canvas.toDataURL('image/jpeg', quality)
+      if (out.length < 1_500_000) return out
+      scale *= 0.8
+      quality = Math.max(0.6, quality - 0.1)
+    }
+    throw new Error('This photo is too large')
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
 
 interface FormState {
   name: string
@@ -15,6 +48,7 @@ interface FormState {
   sizes: string[]
   description: string
   published: boolean
+  featured: boolean
 }
 
 const emptyForm: FormState = {
@@ -23,10 +57,11 @@ const emptyForm: FormState = {
   salePrice: '',
   stock: '',
   category: '',
-  images: [''],
+  images: [],
   sizes: [],
   description: '',
   published: false,
+  featured: false,
 }
 
 const imageUrl = (i: any): string => (typeof i === 'string' ? i : i?.url || '')
@@ -41,10 +76,11 @@ function toForm(p: any): FormState {
     salePrice: p.salePrice != null ? String(p.salePrice) : '',
     stock: p.stock != null ? String(p.stock) : '',
     category: p.category || '',
-    images: imgs.length ? imgs : [''],
+    images: imgs,
     sizes: Array.isArray(p.sizes) ? p.sizes : [],
     description: p.description || '',
     published: p.published === true,
+    featured: p.featured === true,
   }
 }
 
@@ -90,6 +126,17 @@ export function AdminProducts() {
     () => Array.from(new Set(products.map((p) => p.category).filter(Boolean))) as string[],
     [products]
   )
+
+  const togglePublished = async (p: any) => {
+    const next = !p.published
+    try {
+      await updateProduct(p.id, { published: next })
+      setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, published: next } : x)))
+      toast.success(next ? 'Product is live in the shop' : 'Product hidden from the shop')
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not update product')
+    }
+  }
 
   const remove = async (p: any) => {
     if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return
@@ -148,6 +195,7 @@ export function AdminProducts() {
                     <span className={`adm-tag ${p.published ? '' : 'dim'}`}>{p.published ? 'Live' : 'Draft'}</span>
                   </p>
                   <div className="adm-actions">
+                    <button className="adm-text" onClick={() => togglePublished(p)}>{p.published ? 'Hide' : 'Publish'}</button>
                     <button className="adm-text" onClick={() => setEditing(p)}>Edit</button>
                     <button className="adm-text danger" onClick={() => remove(p)}>Delete</button>
                   </div>
@@ -200,10 +248,32 @@ function ProductForm({
     setCustomSize('')
   }
 
-  const setImage = (i: number, v: string) => set('images', f.images.map((x, idx) => (idx === i ? v : x)))
-  const removeImage = (i: number) => {
-    const next = f.images.filter((_, idx) => idx !== i)
-    set('images', next.length ? next : [''])
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(0)
+
+  const removeImage = (i: number) => setF((s) => ({ ...s, images: s.images.filter((_, idx) => idx !== i) }))
+  const makeMain = (i: number) =>
+    setF((s) => ({ ...s, images: [s.images[i], ...s.images.filter((_, idx) => idx !== i)] }))
+
+  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!files.length) return
+    const room = MAX_IMAGES - f.images.length
+    if (room <= 0) { toast.error(`You can add up to ${MAX_IMAGES} photos`); return }
+    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added`)
+
+    for (const file of files.slice(0, room)) {
+      setUploading((n) => n + 1)
+      try {
+        const { url } = await uploadProductImage(await compressImage(file))
+        setF((s) => ({ ...s, images: [...s.images, url] }))
+      } catch (err: any) {
+        toast.error(err?.message || 'Could not upload a photo')
+      } finally {
+        setUploading((n) => n - 1)
+      }
+    }
   }
 
   const save = async () => {
@@ -224,8 +294,8 @@ function ProductForm({
     const stock = f.stock.trim() ? Math.floor(toNumber(f.stock)) : 0
     if (!Number.isFinite(stock) || stock < 0) { toast.error('Stock must be 0 or more'); return }
 
-    const images = f.images.map((s) => s.trim()).filter(Boolean)
-    if (images.some((u) => !/^https?:\/\//i.test(u))) { toast.error('Image links must start with http:// or https://'); return }
+    if (uploading > 0) { toast.error('Wait for the photos to finish uploading'); return }
+    const images = f.images
 
     const payload = {
       name,
@@ -237,6 +307,7 @@ function ProductForm({
       sizes: f.sizes,
       description: f.description.trim(),
       published: f.published,
+      featured: f.featured,
     }
 
     setSaving(true)
@@ -290,27 +361,27 @@ function ProductForm({
           </div>
         </div>
 
-        <label className="adm-label">Images (first one is the main image)</label>
-        {f.images.map((url, i) => (
-          <div className="adm-imgrow" key={i}>
-            {/^https?:\/\//i.test(url.trim()) ? <img className="adm-thumb" src={url.trim()} alt="" /> : null}
-            <input
-              className="adm-in"
-              inputMode="url"
-              value={url}
-              onChange={(e) => setImage(i, e.target.value)}
-              placeholder="https://…/photo.jpg"
-            />
-            {(f.images.length > 1 || url) && (
-              <button className="adm-btn ghost" type="button" onClick={() => removeImage(i)} aria-label="Remove image">
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
-        <button className="adm-btn ghost block" type="button" onClick={() => set('images', [...f.images, ''])}>
-          + Add another image
-        </button>
+        <label className="adm-label">Photos (the first one is the main photo)</label>
+        <div className="adm-gallery">
+          {f.images.map((url, i) => (
+            <div className="adm-tile" key={url + i}>
+              <img src={url} alt="" />
+              {i === 0 ? (
+                <span className="adm-tile-main">Main</span>
+              ) : (
+                <button type="button" className="adm-tile-main btn" onClick={() => makeMain(i)}>Make main</button>
+              )}
+              <button type="button" className="adm-tile-x" onClick={() => removeImage(i)} aria-label="Remove photo">✕</button>
+            </div>
+          ))}
+          {uploading > 0 && <div className="adm-tile adm-tile-busy">Uploading…</div>}
+          {f.images.length + uploading < MAX_IMAGES && (
+            <button type="button" className="adm-tile adm-tile-add" onClick={() => fileRef.current?.click()}>
+              + Add photos
+            </button>
+          )}
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onPick} />
 
         <label className="adm-label">Sizes</label>
         <div className="adm-chips">
@@ -355,12 +426,23 @@ function ProductForm({
           <span>{f.published ? 'Published — visible in the shop' : 'Draft — hidden from the shop'}</span>
           <i />
         </button>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={f.featured}
+          className="adm-switch"
+          style={{ marginTop: 10 }}
+          onClick={() => set('featured', !f.featured)}
+        >
+          <span>{f.featured ? 'Shown in Featured on the homepage' : 'Not shown on the homepage'}</span>
+          <i />
+        </button>
       </div>
 
       <div className="adm-sheet-foot">
         <div>
-          <button className="adm-btn block" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : product ? 'Save changes' : 'Add product'}
+          <button className="adm-btn block" onClick={save} disabled={saving || uploading > 0}>
+            {saving ? 'Saving…' : uploading > 0 ? 'Uploading photos…' : product ? 'Save changes' : 'Add product'}
           </button>
         </div>
       </div>

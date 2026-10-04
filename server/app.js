@@ -17,6 +17,8 @@ import adminJournalRoutes from './routes/admin-journal.js'
 import adminLookbooksRoutes from './routes/admin-lookbooks.js'
 import adminCmsRoutes from './routes/admin-cms.js'
 import adminAuditRoutes from './routes/admin-audit.js'
+import adminUploadsRoutes from './routes/admin-uploads.js'
+import adminBannerRoutes from './routes/admin-banner.js'
 
 const app = express()
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
@@ -54,6 +56,8 @@ app.use('/api/admin/journal', adminJournalRoutes)
 app.use('/api/admin/lookbooks', adminLookbooksRoutes)
 app.use('/api/admin/cms', adminCmsRoutes)
 app.use('/api/admin/audit', adminAuditRoutes)
+app.use('/api/admin/uploads', adminUploadsRoutes)
+app.use('/api/admin/banner', adminBannerRoutes)
 
 app.use((err, _req, res, _next) => {
   console.error('Server error:', err)

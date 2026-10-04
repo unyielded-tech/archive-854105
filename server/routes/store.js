@@ -48,6 +48,10 @@ storeRoutes.get('/articles', wrap(async (req) => {
 }))
 storeRoutes.get('/articles/:slug', bySlug('articles', true))
 storeRoutes.get('/pages/:slug', bySlug('pages', true))
+storeRoutes.get('/banner', wrap(async () => {
+  const d = await db().collection('settings').doc('homeBanner').get()
+  return d.exists ? d.data() : null
+}))
 storeRoutes.get('/settings', wrap(async () => {
   const d = await db().collection('settings').doc('store').get()
   return d.exists ? { id: d.id, ...d.data() } : null

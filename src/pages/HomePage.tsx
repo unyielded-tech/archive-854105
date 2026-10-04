@@ -5,13 +5,14 @@ import { Marquee } from '@/components/fx'
 import { StoreMap } from '@/components/StoreMap'
 import { media } from '@/config/media'
 import { MainLayout } from '@/layouts/MainLayout'
-import { getProducts, getCollections } from '@/services/firestore'
+import { getProducts, getCollections, getHomeBanner, type HomeBannerData } from '@/services/firestore'
 import type { Product, Collection } from '@/types'
 
 export function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
+  const [banner, setBanner] = useState<HomeBannerData | null>(null)
 
   useEffect(() => {
     const loadContent = async () => {
@@ -30,23 +31,31 @@ export function HomePage() {
     }
 
     loadContent()
+    getHomeBanner().then(setBanner).catch(() => {})
   }, [])
 
   const { scrollY } = useScroll()
   const heroY = useTransform(scrollY, [0, 800], [0, 160])
-  const first = collections[0]?.heroImage || featuredProducts[0]?.images?.[0]?.url
+  const bannerUrl = banner?.url && banner?.type ? banner.url : ''
+  const first = bannerUrl || collections[0]?.heroImage || featuredProducts[0]?.images?.[0]?.url
+  const line1 = banner?.line1?.trim() || 'The New'
+  const line2 = banner?.line2?.trim() || 'Collection'
 
   return (
     <MainLayout>
       <section className={`relative h-[85svh] md:h-[92vh] overflow-hidden bg-[#EDE8E0] ${first ? 'text-[#F7F4EF]' : 'text-[#111]'}`}>
-        {media.heroVideo
-          ? <video src={media.heroVideo} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover" />
-          : first && <motion.img style={{ y: heroY }} src={first} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />}
+        {bannerUrl && banner?.type === 'video'
+          ? <video src={bannerUrl} autoPlay loop muted playsInline preload="auto" className="absolute inset-0 w-full h-full object-cover" />
+          : bannerUrl && banner?.type === 'image'
+            ? <motion.img style={{ y: heroY }} src={bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />
+            : media.heroVideo
+              ? <video src={media.heroVideo} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover" />
+              : first && <motion.img style={{ y: heroY }} src={first} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />}
         {first && <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />}
         <div className="absolute bottom-0 inset-x-0 px-5 md:px-16 pb-12">
           <h1 className="serif text-5xl sm:text-6xl md:text-8xl leading-[1.05]">
-            <span className="reveal-line"><span>The New</span></span>
-            <span className="reveal-line"><span style={{ animationDelay: '.2s' }}><em>Collection</em></span></span>
+            <span className="reveal-line"><span>{line1}</span></span>
+            <span className="reveal-line"><span style={{ animationDelay: '.2s' }}><em>{line2}</em></span></span>
           </h1>
           <div className="fade-in mt-8 flex gap-6 items-center">
             <Link to="/shop" className={`btn border ${first ? 'bg-[#F7F4EF] text-black border-[#F7F4EF]' : 'btn-primary'}`}>Discover</Link>
