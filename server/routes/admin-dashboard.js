@@ -1,62 +1,58 @@
 import express from 'express'
-import { adminAuthMiddleware, requireRole } from '../middleware/admin-auth.js'
-import { getFirebaseDb, admin } from '../lib/firebase-admin.js'
+import { adminAuthMiddleware } from '../middleware/admin-auth.js'
+import { getFirebaseDb } from '../lib/firebase-admin.js'
 
 const router = express.Router()
 
 // GET /api/admin/dashboard/stats
-router.get('/stats', adminAuthMiddleware, async (req, res) => {
+router.get('/stats', adminAuthMiddleware, async (_req, res) => {
   try {
     const db = getFirebaseDb()
 
-    // Total revenue
-    const ordersSnapshot = await db.collection('orders')
-      .where('paymentStatus', '==', 'completed')
-      .get()
-    
-    let totalRevenue = 0
-    const allOrders = []
-    
-    ordersSnapshot.forEach(doc => {
-      const order = { id: doc.id, ...doc.data() }
-      totalRevenue += order.total || 0
-      allOrders.push(order)
-    })
+    const ordersSnap = await db.collection('orders').get()
+    const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const live = orders.filter((o) => o.status !== 'cancelled')
 
-    // Low stock products
-    const productsSnapshot = await db.collection('products')
-      .where('published', '==', true)
-      .orderBy('stock')
-      .limit(10)
-      .get()
+    // Money counts once it is actually paid (cash on delivery turns "completed" on delivery).
+    const totalRevenue = live.filter((o) => o.paymentStatus === 'completed').reduce((s, o) => s + (o.total || 0), 0)
+    const pendingOrders = orders.filter((o) => o.status === 'pending').length
 
+    // Customers = signed-up accounts plus guests who ordered (matched by email, else phone).
+    const keys = new Set()
+    const usersSnap = await db.collection('users').get()
+    usersSnap.forEach((d) => { const e = String(d.data().email || '').toLowerCase(); if (e) keys.add(e) })
+    for (const o of orders) {
+      const k = String(o.customerEmail || o.customer?.email || '').toLowerCase() || o.customer?.phone
+      if (k) keys.add(k)
+    }
+
+    const productsSnap = await db.collection('products').where('published', '==', true).orderBy('stock').limit(10).get()
     const lowStockProducts = []
-    productsSnapshot.forEach(doc => {
-      const product = { id: doc.id, ...doc.data() }
-      if (product.stock <= 5) {
-        lowStockProducts.push(product)
-      }
+    productsSnap.forEach((doc) => {
+      const p = { id: doc.id, ...doc.data() }
+      if (p.stock <= 5) lowStockProducts.push(p)
     })
 
-    // Recent orders (last 5)
-    const recentOrders = allOrders
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    const recentOrders = [...orders]
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
       .slice(0, 5)
-      .map(order => ({
-        id: order.id,
-        orderId: order.orderId,
-        total: order.total,
-        status: order.status,
-        createdAt: order.createdAt
+      .map((o) => ({
+        id: o.id,
+        orderId: o.orderId,
+        total: o.total,
+        status: o.status,
+        customerName: o.customer?.name || '',
+        createdAt: o.createdAt,
       }))
 
     res.json({
       totalRevenue,
-      totalOrders: allOrders.length,
-      totalCustomers: new Set(allOrders.map(o => o.customerId)).size,
+      totalOrders: orders.length,
+      pendingOrders,
+      totalCustomers: keys.size,
       totalProducts: (await db.collection('products').where('published', '==', true).count().get()).data().count,
       recentOrders,
-      lowStockProducts: lowStockProducts.slice(0, 5)
+      lowStockProducts: lowStockProducts.slice(0, 5),
     })
   } catch (error) {
     console.error('Dashboard stats error:', error)

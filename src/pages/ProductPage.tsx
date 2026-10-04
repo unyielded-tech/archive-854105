@@ -1,220 +1,189 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { MainLayout } from '@/layouts/MainLayout'
-import { getProductBySlug } from '@/services/firestore'
-import { useCartStore } from '@/store/cartStore'
-import type { Product } from '@/types'
-import { Heart, ChevronRight, Truck, RotateCw } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { Heart, Truck, Wallet, MessageCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { MainLayout } from '@/layouts/MainLayout'
+import { ProductCard } from '@/components/ProductCard'
+import { getProductBySlug, getProducts } from '@/services/firestore'
+import { useCartStore } from '@/store/cartStore'
+import { useWishlistStore } from '@/store/wishlistStore'
+import { inr, FREE_SHIPPING_ABOVE } from '@/lib/format'
+import type { Product } from '@/types'
+import '@/styles/store.css'
 
 export function ProductPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const addItem = useCartStore((s) => s.addItem)
+  const wishIds = useWishlistStore((s) => s.ids)
+  const toggleWish = useWishlistStore((s) => s.toggle)
+
   const [product, setProduct] = useState<Product | null>(null)
+  const [related, setRelated] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedColor, setSelectedColor] = useState('')
-  const [selectedSize, setSelectedSize] = useState('')
-  const [quantity, setQuantity] = useState(1)
-  const [primaryImageIdx, setPrimaryImageIdx] = useState(0)
-  const addItem = useCartStore((state) => state.addItem)
+  const [color, setColor] = useState('')
+  const [size, setSize] = useState('')
+  const [qty, setQty] = useState(1)
+  const [idx, setIdx] = useState(0)
+  const liked = product ? wishIds.includes(product.id) : false
 
   useEffect(() => {
-    const loadProduct = async () => {
+    let alive = true
+    setLoading(true)
+    setIdx(0); setQty(1); setSize('')
+    const load = async () => {
       if (!slug) return
       try {
-        const prod = await getProductBySlug(slug)
-        if (!prod) {
-          navigate('/404')
-          return
-        }
-        setProduct(prod)
-        setSelectedColor(prod.colors[0]?.name || '')
-        setSelectedSize(prod.sizes[0] || '')
-      } catch (error) {
-        console.error('Failed to load product:', error)
-        navigate('/404')
+        const p = await getProductBySlug(slug)
+        if (!p) { navigate('/404', { replace: true }); return }
+        if (!alive) return
+        setProduct(p)
+        setColor(p.colors?.[0]?.name || '')
+        window.scrollTo({ top: 0 })
+        getProducts({ published: true, category: p.category || undefined, limit: 12 })
+          .then((list) => alive && setRelated(list.filter((x) => x.id !== p.id).slice(0, 10)))
+          .catch(() => {})
+      } catch (e) {
+        console.error('Failed to load product:', e)
+        navigate('/404', { replace: true })
       } finally {
-        setLoading(false)
+        alive && setLoading(false)
       }
     }
-    loadProduct()
+    load()
+    return () => { alive = false }
   }, [slug, navigate])
 
-  if (loading) {
-    return (
-      <MainLayout>
-        <div className="container py-20 text-center">
-          <p className="text-body-lg text-medium-grey">Loading product...</p>
-        </div>
-      </MainLayout>
-    )
+  const images = useMemo(() => (product?.images || []).map((i: any) => (typeof i === 'string' ? i : i.url)).filter(Boolean), [product])
+
+  if (loading || !product) {
+    return <MainLayout hideFab><div className="st-empty" style={{ minHeight: '50vh' }}>Loading…</div></MainLayout>
   }
 
-  if (!product) {
-    return <MainLayout><div className="container py-20 text-center"><h1 className="text-h1">Product not found</h1></div></MainLayout>
-  }
+  const onSale = !!product.salePrice && product.salePrice > 0 && product.salePrice < product.price
+  const price = onSale ? (product.salePrice as number) : product.price
+  const off = onSale ? Math.round((1 - (product.salePrice as number) / product.price) * 100) : 0
+  const stock = typeof product.stock === 'number' ? product.stock : null
+  const soldOut = stock !== null && stock <= 0
+  const maxQty = stock !== null ? Math.max(1, Math.min(10, stock)) : 10
+  const sizes = product.sizes || []
+  const colors = product.colors || []
 
-  const handleAddToCart = () => {
-    if (product.sizes.length > 0 && !selectedSize) {
-      toast.error('Please select a size')
-      return
-    }
-    if (product.colors.length > 0 && !selectedColor) {
-      toast.error('Please select a color')
-      return
-    }
-    addItem(product, selectedSize, selectedColor, quantity)
-    toast.success(`Added ${quantity} to cart`)
+  const validate = () => {
+    if (sizes.length > 0 && !size) { toast.error('Please select a size'); return false }
+    if (colors.length > 0 && !color) { toast.error('Please select a color'); return false }
+    return true
   }
-
-  const primaryImage = product.images.find((img) => img.isPrimary) || product.images[0]
+  const addToBag = () => {
+    if (!validate()) return false
+    addItem(product, size, color, qty)
+    toast.success('Added to bag')
+    return true
+  }
+  const buyNow = () => { if (addToBag()) navigate('/cart') }
 
   return (
-    <MainLayout>
-      <div className="container py-8 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* Images */}
-          <div className="space-y-4">
-            <div className="relative overflow-hidden bg-off-white aspect-square">
-              {(product.images[primaryImageIdx]?.url || primaryImage?.url) && (
-                <motion.img key={primaryImageIdx} src={product.images[primaryImageIdx]?.url || primaryImage?.url} alt={product.name} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full object-cover" />
-              )}
+    <MainLayout hideFab>
+      <div className="st-wrap">
+        <div className="st-sub" style={{ paddingTop: 12, fontSize: '.72rem' }}>
+          <Link to="/">Home</Link> / <Link to="/shop">Shop</Link>
+          {product.category ? <> / <Link to={`/shop?category=${encodeURIComponent(product.category)}`}>{product.category}</Link></> : null}
+        </div>
+
+        <div className="pp">
+          <div>
+            <div className="pp-main">
+              {images[idx] ? <img src={images[idx]} alt={product.name} /> : null}
             </div>
-            {product.images.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
-                {product.images.map((img, idx) => (
-                  <button key={img.id} onClick={() => setPrimaryImageIdx(idx)} className={`aspect-square overflow-hidden border-2 transition ${primaryImageIdx === idx ? 'border-black' : 'border-soft-grey'}`}>
-                    <img src={img.url} alt={img.alt} className="w-full h-full object-cover" />
+            {images.length > 1 && (
+              <div className="pp-thumbs">
+                {images.map((u, i) => (
+                  <button key={u + i} className={`pp-thumb ${i === idx ? 'on' : ''}`} onClick={() => setIdx(i)} aria-label={`Photo ${i + 1}`}>
+                    <img src={u} alt="" />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Info */}
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-h1 md:text-display-sm font-display mb-2">{product.name}</h1>
-              <p className="text-body-lg text-medium-grey">{product.shortDescription}</p>
-            </div>
+          <div>
+            {product.category && <div className="pcard-cat">{product.category}</div>}
+            <h1 className="pp-name">{product.name}</h1>
 
-            {/* Pricing */}
-            <div className="py-6 border-y border-soft-grey">
-              <div className="flex items-center gap-4 mb-2">
-                {product.salePrice ? (
-                  <>
-                    <span className="text-h2 font-semibold">₹{product.salePrice}</span>
-                    <span className="text-body-lg text-medium-grey line-through">₹{product.price}</span>
-                    <span className="text-error text-sm font-semibold uppercase">Sale</span>
-                  </>
-                ) : (
-                  <span className="text-h2 font-semibold">₹{product.price}</span>
-                )}
-              </div>
-              {product.compareAtPrice && (
-                <p className="text-body-sm text-medium-grey">Compare at ₹{product.compareAtPrice}</p>
-              )}
+            <div className="pp-price">
+              <span className="pp-now">{inr(price)}</span>
+              {onSale && <span className="pp-was">{inr(product.price)}</span>}
+              {onSale && <span className="pp-off">{off}% off</span>}
             </div>
+            <p className="st-sub" style={{ fontSize: '.72rem' }}>Inclusive of all taxes</p>
+            <p style={{ margin: '8px 0 0', fontSize: '.85rem', color: soldOut ? '#b3261e' : stock !== null && stock <= 5 ? '#b3261e' : '#1a7f37' }}>
+              {soldOut ? 'Out of stock' : stock !== null && stock <= 5 ? `Only ${stock} left` : 'In stock'}
+            </p>
 
-            {/* Description */}
-            <div>
-              <h3 className="text-h5 font-semibold mb-3">Description</h3>
-              <p className="text-body-md text-charcoal leading-relaxed">{product.description}</p>
-            </div>
-
-            {/* Colors */}
-            {product.colors.length > 0 && (
-              <div>
-                <h3 className="text-h5 font-semibold mb-3">Color</h3>
-                <div className="flex gap-3">
-                  {product.colors.map((color) => (
-                    <button key={color.name} onClick={() => setSelectedColor(color.name)} className={`px-4 py-2 border-2 rounded-md text-sm font-semibold transition ${selectedColor === color.name ? 'bg-black text-white border-black' : 'border-medium-grey hover:border-black'}`}>
-                      {color.name}
-                    </button>
+            {colors.length > 0 && (
+              <>
+                <label className="st-label">Color</label>
+                <div className="pp-sizes">
+                  {colors.map((c) => (
+                    <button key={c.name} className={`pp-size ${color === c.name ? 'on' : ''}`} onClick={() => setColor(c.name)}>{c.name}</button>
                   ))}
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Sizes */}
-            {product.sizes.length > 0 && (
-              <div>
-                <h3 className="text-h5 font-semibold mb-3">Size</h3>
-                <div className="grid grid-cols-4 gap-2">
-                  {product.sizes.map((size) => (
-                    <button key={size} onClick={() => setSelectedSize(size)} className={`px-3 py-2 border-2 rounded-md text-sm font-semibold transition ${selectedSize === size ? 'bg-black text-white border-black' : 'border-medium-grey hover:border-black'}`}>
-                      {size}
-                    </button>
+            {sizes.length > 0 && (
+              <>
+                <label className="st-label">Select size</label>
+                <div className="pp-sizes">
+                  {sizes.map((s) => (
+                    <button key={s} className={`pp-size ${size === s ? 'on' : ''}`} onClick={() => setSize(s)}>{s}</button>
                   ))}
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Quantity & Add to Cart */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-h5 font-semibold mb-3">Quantity</h3>
-                <div className="flex items-center border border-medium-grey rounded-md w-fit">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-4 py-2 hover:bg-off-white">−</button>
-                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-12 text-center border-x border-medium-grey focus:outline-none" />
-                  <button onClick={() => setQuantity(quantity + 1)} className="px-4 py-2 hover:bg-off-white">+</button>
-                </div>
-              </div>
-
-              <button onClick={handleAddToCart} disabled={product.stock === 0} className="w-full btn btn-primary btn-lg hover:bg-charcoal disabled:opacity-50">
-                {product.stock === 0 ? 'Out of Stock' : 'Add to Bag'}
-              </button>
-
-              <button className="w-full btn btn-secondary btn-lg flex items-center justify-center gap-2">
-                <Heart size={18} />
-                Add to Wishlist
-              </button>
+            <label className="st-label">Quantity</label>
+            <div className="qty">
+              <button onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Less">−</button>
+              <span>{qty}</span>
+              <button onClick={() => setQty(Math.min(maxQty, qty + 1))} aria-label="More">+</button>
             </div>
 
-            {/* Benefits */}
-            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-soft-grey">
-              <div className="flex gap-3">
-                <Truck className="flex-shrink-0 text-medium-grey" size={20} />
-                <div>
-                  <p className="text-sm font-semibold">Free Shipping</p>
-                  <p className="text-xs text-medium-grey">On orders over ₹2000</p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <RotateCw className="flex-shrink-0 text-medium-grey" size={20} />
-                <div>
-                  <p className="text-sm font-semibold">Easy Returns</p>
-                  <p className="text-xs text-medium-grey">30-day return policy</p>
-                </div>
-              </div>
+            <div className="pp-bar">
+              <button className="st-btn ghost" disabled={soldOut} onClick={addToBag}>Add to bag</button>
+              <button className="st-btn" disabled={soldOut} onClick={buyNow}>{soldOut ? 'Sold out' : 'Buy now'}</button>
             </div>
 
-            {/* Additional Info */}
-            {(product.fabric || product.fit || product.careInstructions) && (
-              <div className="pt-6 border-t border-soft-grey space-y-4">
-                {product.fabric && (
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-wider">Fabric</p>
-                    <p className="text-body-sm text-medium-grey">{product.fabric}</p>
-                  </div>
-                )}
-                {product.fit && (
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-wider">Fit</p>
-                    <p className="text-body-sm text-medium-grey">{product.fit}</p>
-                  </div>
-                )}
-                {product.careInstructions && (
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-wider">Care</p>
-                    <p className="text-body-sm text-medium-grey">{product.careInstructions}</p>
-                  </div>
-                )}
+            <button className="st-btn ghost block" style={{ marginTop: 10, minHeight: 40 }} onClick={() => { toggleWish(product.id); toast(liked ? 'Removed from wishlist' : 'Saved to wishlist') }}>
+              <Heart size={15} fill={liked ? '#111' : 'none'} /> {liked ? 'Saved to wishlist' : 'Add to wishlist'}
+            </button>
+
+            <div className="pp-info">
+              <div><Truck size={18} /> Free delivery on orders above {inr(FREE_SHIPPING_ABOVE)}</div>
+              <div><Wallet size={18} /> Cash on delivery available</div>
+              <div><MessageCircle size={18} /> Questions? <a href="https://wa.me/917033077553" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Chat on WhatsApp</a></div>
+            </div>
+
+            {(product.description || product.fabric || product.fit || product.careInstructions) && (
+              <div style={{ marginTop: 18 }}>
+                <label className="st-label" style={{ marginTop: 0 }}>Details</label>
+                {product.description && <p style={{ fontSize: '.9rem', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{product.description}</p>}
+                {product.fabric && <p style={{ fontSize: '.85rem', margin: '0 0 4px' }}><b style={{ fontWeight: 500 }}>Fabric:</b> {product.fabric}</p>}
+                {product.fit && <p style={{ fontSize: '.85rem', margin: '0 0 4px' }}><b style={{ fontWeight: 500 }}>Fit:</b> {product.fit}</p>}
+                {product.careInstructions && <p style={{ fontSize: '.85rem', margin: 0 }}><b style={{ fontWeight: 500 }}>Care:</b> {product.careInstructions}</p>}
               </div>
             )}
           </div>
         </div>
+
+        {related.length > 0 && (
+          <section className="st-sec" style={{ paddingBottom: 28 }}>
+            <div className="st-sec-head"><h2 className="st-title">You may also like</h2></div>
+            <div className="hscroll">
+              {related.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </section>
+        )}
       </div>
     </MainLayout>
   )

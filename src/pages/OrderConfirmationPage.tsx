@@ -1,85 +1,59 @@
-import { Link } from 'react-router-dom'
-import { MainLayout } from '@/layouts/MainLayout'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { CheckCircle } from 'lucide-react'
+import { MainLayout } from '@/layouts/MainLayout'
+import { OrderView } from '@/components/OrderView'
+import { trackOrder, LAST_ORDER_KEY, type StoreOrder } from '@/services/orders'
+import '@/styles/store.css'
 
 export function OrderConfirmationPage() {
-  const orderId = 'ARV-2024-001'
-  const estimatedDelivery = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString()
+  const { orderId = '' } = useParams<{ orderId: string }>()
+  const [order, setOrder] = useState<StoreOrder | null>(null)
+  const [error, setError] = useState('')
+  const [phone, setPhone] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  const load = async (id: string, ph: string) => {
+    setLoading(true)
+    setError('')
+    try { setOrder(await trackOrder(id, ph)) } catch (e: any) { setError(e?.message || 'Could not load the order') } finally { setLoading(false) }
+  }
+
+  useEffect(() => {
+    let saved: { orderId?: string; phone?: string } = {}
+    try { saved = JSON.parse(sessionStorage.getItem(LAST_ORDER_KEY) || '{}') } catch { /* ignore */ }
+    if (saved.orderId === orderId && saved.phone) load(orderId, saved.phone)
+    else setLoading(false)
+  }, [orderId])
 
   return (
     <MainLayout>
-      <div className="container py-20">
-        <div className="max-w-2xl mx-auto text-center">
-          {/* Success Icon */}
-          <div className="flex justify-center mb-8">
-            <div className="relative">
-              <div className="w-24 h-24 bg-success rounded-full flex items-center justify-center">
-                <CheckCircle size={56} className="text-white" />
-              </div>
-            </div>
-          </div>
+      <div className="st-wrap" style={{ maxWidth: 720, paddingBottom: 40 }}>
+        <div style={{ textAlign: 'center', padding: '28px 0 14px' }}>
+          <CheckCircle size={44} style={{ color: '#1a7f37' }} />
+          <h1 className="st-page-title" style={{ marginTop: 8 }}>Thank you for your order</h1>
+          <p className="st-sub">We have received your order and will confirm it shortly. You can pay in cash when it arrives.</p>
+        </div>
 
-          {/* Message */}
-          <h1 className="text-h2 md:text-display-sm font-display mb-4">Thank you for your order!</h1>
-          <p className="text-body-lg text-medium-grey mb-8">
-            Your order has been confirmed and is being prepared for shipment.
-          </p>
-
-          {/* Order Details */}
-          <div className="bg-off-white p-8 rounded-md mb-8 space-y-4">
-            <div className="flex justify-between items-center pb-4 border-b border-soft-grey">
-              <span className="text-body-sm text-medium-grey">Order Number</span>
-              <span className="font-semibold">{orderId}</span>
+        {loading ? (
+          <div className="st-empty">Loading your order…</div>
+        ) : order ? (
+          <OrderView order={order} />
+        ) : (
+          <div className="sec-box">
+            <p style={{ margin: '0 0 6px' }}>Your order number is <b style={{ fontWeight: 500 }}>{orderId}</b>. Save it to track your order.</p>
+            <label className="st-label">Enter your phone number to see the details</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="st-input" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" />
+              <button className="st-btn" onClick={() => load(orderId, phone)}>View</button>
             </div>
-            <div className="flex justify-between items-center pb-4 border-b border-soft-grey">
-              <span className="text-body-sm text-medium-grey">Order Total</span>
-              <span className="font-semibold">₹5,999</span>
-            </div>
-            <div className="flex justify-between items-center pb-4 border-b border-soft-grey">
-              <span className="text-body-sm text-medium-grey">Estimated Delivery</span>
-              <span className="font-semibold">{estimatedDelivery}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-body-sm text-medium-grey">Shipping Method</span>
-              <span className="font-semibold">Express Delivery</span>
-            </div>
+            {error && <p style={{ color: '#b3261e', fontSize: '.85rem', margin: '8px 0 0' }}>{error}</p>}
           </div>
+        )}
 
-          {/* Next Steps */}
-          <div className="bg-white border-2 border-soft-grey p-8 rounded-md mb-8 text-left">
-            <h2 className="text-h5 font-semibold mb-4">What's Next?</h2>
-            <ol className="space-y-3">
-              <li className="flex gap-3">
-                <span className="font-semibold text-gold">1</span>
-                <span className="text-body-sm">You'll receive an order confirmation email with tracking details</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-gold">2</span>
-                <span className="text-body-sm">Your items are being carefully packed in our warehouse</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-gold">3</span>
-                <span className="text-body-sm">Once shipped, you can track your package in real-time</span>
-              </li>
-            </ol>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col md:flex-row gap-4 justify-center">
-            <Link to="/" className="btn btn-primary">
-              Continue Shopping
-            </Link>
-            <Link to="/account" className="btn btn-secondary">
-              View My Orders
-            </Link>
-          </div>
-
-          {/* FAQ */}
-          <div className="mt-12 pt-8 border-t border-soft-grey">
-            <p className="text-body-sm text-medium-grey mb-4">
-              Have questions? Check our <a href="#" className="hover:underline font-semibold">FAQ</a> or <a href="#" className="hover:underline font-semibold">contact us</a>
-            </p>
-          </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 18 }}>
+          <Link to="/shop" className="st-btn">Continue shopping</Link>
+          <Link to="/track-order" className="st-btn ghost">Track an order</Link>
         </div>
       </div>
     </MainLayout>

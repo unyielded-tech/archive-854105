@@ -1,89 +1,51 @@
 import { Link } from 'react-router-dom'
-import { Mail, Phone, Instagram, Twitter } from 'lucide-react'
+import { Phone, MapPin } from 'lucide-react'
+import { media } from '@/config/media'
+import '@/styles/store.css'
 
 export function Footer() {
   return (
-    <footer className="bg-charcoal text-white mt-16">
-      <div className="container py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-          {/* Brand */}
-          <div>
-            <h2 className="text-h6 font-display mb-4">ARCHIVE 854105</h2>
-            <p className="text-body-sm text-soft-grey">Premium streetwear. New Market, Katihar, Bihar — in front of City Kart.</p>
-            <p className="text-body-sm text-soft-grey mt-4">© 2026 ARCHIVE 854105. All rights reserved.</p>
+    <footer className="ft">
+      <div className="st-wrap">
+        <div className="ft-grid">
+          <div className="ft-brand">
+            <h4>ARCHIVE 854105</h4>
+            <p style={{ fontSize: '.85rem', lineHeight: 1.6, margin: '0 0 10px' }}>Premium streetwear from Katihar, Bihar.</p>
+            <a href={`tel:+${media.whatsapp}`} style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Phone size={14} /> {media.phone}</a>
+            <a href={`https://wa.me/${media.whatsapp}`} target="_blank" rel="noreferrer">Order on WhatsApp</a>
+            <p style={{ fontSize: '.8rem', display: 'flex', gap: 8, marginTop: 8 }}><MapPin size={14} style={{ flex: 'none', marginTop: 3 }} /> {media.address}</p>
           </div>
 
-          {/* Shop */}
           <div>
-            <h3 className="text-h6 font-semibold uppercase tracking-wider mb-4">Shop</h3>
-            <nav className="space-y-2">
-              <Link to="/shop" className="text-body-sm text-soft-grey hover:text-white transition block">
-                All Products
-              </Link>
-              <Link to="/collections" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Collections
-              </Link>
-              <Link to="/shop?sale=true" className="text-body-sm text-soft-grey hover:text-white transition block">
-                Sale
-              </Link>
-              <Link to="/shop?new=true" className="text-body-sm text-soft-grey hover:text-white transition block">
-                New Arrivals
-              </Link>
-            </nav>
+            <h4>Shop</h4>
+            <Link to="/shop">All products</Link>
+            <Link to="/shop?new=true">New arrivals</Link>
+            <Link to="/shop?sale=true">Sale</Link>
+            <Link to="/collections">Collections</Link>
+            <Link to="/wishlist">Wishlist</Link>
           </div>
 
-          {/* Editorial */}
           <div>
-            <h3 className="text-h6 font-semibold uppercase tracking-wider mb-4">Editorial</h3>
-            <nav className="space-y-2">
-              <Link to="/about" className="text-body-sm text-soft-grey hover:text-white transition block">
-                About Us
-              </Link>
-              </nav>
+            <h4>Explore</h4>
+            <Link to="/lookbook">Lookbook</Link>
+            <Link to="/journal">Journal</Link>
+            <Link to="/about">About us</Link>
+            <Link to="/contact">Visit the store</Link>
           </div>
 
-          {/* Support */}
           <div>
-            <h3 className="text-h6 font-semibold uppercase tracking-wider mb-4">Support</h3>
-            <nav className="space-y-2">
-              <Link to="/contact" className="text-body-sm text-soft-grey hover:text-white transition block">Contact Us</Link>
-              </nav>
+            <h4>Help</h4>
+            <Link to="/track-order">Track order</Link>
+            <Link to="/faq">FAQ</Link>
+            <Link to="/shipping-returns">Shipping &amp; returns</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-soft-grey pt-8 mt-8">
-          {/* Newsletter */}
-          <div className="mb-8">
-            <h3 className="text-h6 font-semibold uppercase tracking-wider mb-4">Newsletter</h3>
-            <form className="flex gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-2 bg-charcoal border border-soft-grey rounded-md text-white placeholder:text-soft-grey focus:outline-none focus:border-white transition"
-              />
-              <button className="btn btn-primary">Subscribe</button>
-            </form>
-          </div>
-
-          {/* Contact & Social */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 pt-8 border-t border-soft-grey">
-            <div className="flex gap-6">
-              <a href="tel:+917033077553" className="flex items-center gap-2 text-body-sm text-soft-grey hover:text-white transition">
-                <Phone size={16} />
-                +91 70330 77553
-              </a>
-            </div>
-
-            <div className="flex gap-4">
-              <a href="#" className="p-2 hover:bg-soft-grey rounded-md transition">
-                <Instagram size={18} />
-              </a>
-              <a href="#" className="p-2 hover:bg-soft-grey rounded-md transition">
-                <Twitter size={18} />
-              </a>
-            </div>
-          </div>
+        <div className="ft-bottom">
+          <span>© {new Date().getFullYear()} ARCHIVE 854105. All rights reserved.</span>
+          <span>Cash on delivery available</span>
         </div>
       </div>
     </footer>

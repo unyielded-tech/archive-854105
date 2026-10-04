@@ -138,6 +138,17 @@ export function AdminProducts() {
     }
   }
 
+  const toggleHome = async (p: any) => {
+    const next = !p.featured
+    try {
+      await updateProduct(p.id, { featured: next })
+      setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, featured: next } : x)))
+      toast.success(next ? 'Added to the homepage' : 'Removed from the homepage')
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not update product')
+    }
+  }
+
   const remove = async (p: any) => {
     if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return
     try {
@@ -193,9 +204,11 @@ export function AdminProducts() {
                   </p>
                   <p style={{ margin: '6px 0 0' }}>
                     <span className={`adm-tag ${p.published ? '' : 'dim'}`}>{p.published ? 'Live' : 'Draft'}</span>
+                    {p.featured && <> <span className="adm-tag">On homepage</span></>}
                   </p>
                   <div className="adm-actions">
                     <button className="adm-text" onClick={() => togglePublished(p)}>{p.published ? 'Hide' : 'Publish'}</button>
+                    <button className="adm-text" onClick={() => toggleHome(p)}>{p.featured ? 'Off homepage' : 'To homepage'}</button>
                     <button className="adm-text" onClick={() => setEditing(p)}>Edit</button>
                     <button className="adm-text danger" onClick={() => remove(p)}>Delete</button>
                   </div>
@@ -434,7 +447,7 @@ function ProductForm({
           style={{ marginTop: 10 }}
           onClick={() => set('featured', !f.featured)}
         >
-          <span>{f.featured ? 'Shown in Featured on the homepage' : 'Not shown on the homepage'}</span>
+          <span>{f.featured ? 'On the homepage (Featured)' : 'Not on the homepage'}</span>
           <i />
         </button>
       </div>

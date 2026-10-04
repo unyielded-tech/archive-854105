@@ -2,137 +2,82 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Menu, X, Search, User, ShoppingBag, Heart } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
-import clsx from 'clsx'
+import { useWishlistStore } from '@/store/wishlistStore'
+import '@/styles/store.css'
+
+const navLinks = [
+  { href: '/shop', label: 'Shop' },
+  { href: '/shop?new=true', label: 'New' },
+  { href: '/shop?sale=true', label: 'Sale' },
+  { href: '/collections', label: 'Collections' },
+  { href: '/lookbook', label: 'Lookbook' },
+  { href: '/journal', label: 'Journal' },
+  { href: '/about', label: 'About' },
+]
 
 export function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
-  const cartItemCount = useCartStore((state) => state.getItemCount())
+  const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0))
+  const wishCount = useWishlistStore((s) => s.ids.length)
 
-  const navLinks = [
-    { href: '/', label: 'Home' },
-    { href: '/shop', label: 'Shop' },
-    { href: '/collections', label: 'Collections' },
-    { href: '/lookbook', label: 'Lookbook' },
-    { href: '/journal', label: 'Journal' },
-    { href: '/about', label: 'About' },
-  ]
-
-  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const query = formData.get('q')
-    if (query) {
-      navigate(`/shop?search=${encodeURIComponent(query as string)}`)
-      setSearchOpen(false)
-    }
+    const q = String(new FormData(e.currentTarget).get('q') || '').trim()
+    navigate(q ? `/shop?search=${encodeURIComponent(q)}` : '/shop')
+    setMenuOpen(false)
   }
 
-  return (
-    <header className="border-b border-soft-grey sticky top-0 z-40 bg-white">
-      {/* Announcement Bar */}
-      <div className="bg-charcoal text-white py-2 text-center text-sm tracking-widest">
-        LUXURY STREETWEAR FROM KATIHAR • BIHAR
-      </div>
+  const searchBox = (
+    <form onSubmit={onSearch} className="hd-search" role="search">
+      <Search size={16} />
+      <input name="q" placeholder="Search for shirts, tees, jackets…" autoComplete="off" />
+    </form>
+  )
 
-      {/* Main Header */}
-      <nav className="container py-3 md:py-6">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex-shrink-0">
-            <div className="text-2xl md:text-3xl font-display font-bold tracking-widest">
-              ARCHIVE
-              <div className="text-sm font-body font-normal tracking-wider">854105</div>
-            </div>
+  return (
+    <header className="hd">
+      <div className="hd-bar">Luxury streetwear from Katihar · Bihar</div>
+      <div className="st-wrap">
+        <div className="hd-row">
+          <button className="hd-icon hd-menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
+          <Link to="/" className="hd-logo">
+            Archive
+            <small>854105</small>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-8 text-sm font-medium uppercase tracking-wider">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className="hover:opacity-60 transition-opacity"
-              >
-                {link.label}
-              </Link>
+          <nav className="hd-nav">
+            {navLinks.map((l) => (
+              <Link key={l.href} to={l.href}>{l.label}</Link>
             ))}
-          </div>
+          </nav>
 
-          {/* Right Actions */}
-          <div className="flex items-center gap-0 md:gap-6">
-            {/* Search */}
-            <button
-              onClick={() => setSearchOpen(!searchOpen)}
-              className="p-2 hover:opacity-60 transition-opacity"
-              aria-label="Search"
-            >
-              <Search size={20} />
-            </button>
+          <div className="hd-search-wrap hd-search-desktop">{searchBox}</div>
 
-            {/* Account */}
-            <Link to="/account" className="p-2 hover:opacity-60 transition-opacity" aria-label="Account">
-              <User size={20} />
+          <div className="hd-icons">
+            <Link to="/account" className="hd-icon" aria-label="Account"><User size={21} /></Link>
+            <Link to="/wishlist" className="hd-icon" aria-label="Wishlist">
+              <Heart size={21} />
+              {wishCount > 0 && <span className="hd-badge">{wishCount}</span>}
             </Link>
-
-            {/* Wishlist */}
-            <Link to="/wishlist" className="p-2 hover:opacity-60 transition-opacity" aria-label="Wishlist">
-              <Heart size={20} />
+            <Link to="/cart" className="hd-icon" aria-label="Shopping bag">
+              <ShoppingBag size={21} />
+              {cartCount > 0 && <span className="hd-badge">{cartCount}</span>}
             </Link>
-
-            {/* Cart */}
-            <Link
-              to="/cart"
-              className="p-2 hover:opacity-60 transition-opacity relative"
-              aria-label="Shopping Bag"
-            >
-              <ShoppingBag size={20} />
-              {cartItemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-black text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {cartItemCount}
-                </span>
-              )}
-            </Link>
-
-            {/* Mobile Menu */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 hover:opacity-60 transition-opacity"
-              aria-label="Menu"
-            >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
           </div>
         </div>
 
-        {/* Search Bar */}
-        {searchOpen && (
-          <form onSubmit={handleSearch} className="mt-4 border-t border-soft-grey pt-4">
-            <input
-              type="text"
-              name="q"
-              placeholder="Search products..."
-              autoFocus
-              className="w-full px-0 py-2 text-sm border-b border-charcoal focus:outline-none focus:border-black"
-            />
-          </form>
-        )}
-      </nav>
+        <div className="hd-search-mobile">{searchBox}</div>
+      </div>
 
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-soft-grey">
-          <div className="container py-4 space-y-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-sm font-medium uppercase tracking-wider hover:opacity-60"
-              >
-                {link.label}
-              </Link>
+      {menuOpen && (
+        <div className="menu-panel">
+          <div className="st-wrap">
+            {[{ href: '/', label: 'Home' }, ...navLinks, { href: '/track-order', label: 'Track order' }, { href: '/contact', label: 'Contact' }].map((l) => (
+              <Link key={l.href} to={l.href} onClick={() => setMenuOpen(false)}>{l.label}</Link>
             ))}
           </div>
         </div>

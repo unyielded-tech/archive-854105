@@ -37,7 +37,7 @@ export function CollectionsPage() {
             {collections.map((collection) => (
               <Link
                 key={collection.id}
-                to={`/shop?collection=${collection.slug}`}
+                to={`/collections/${collection.slug}`}
                 className="group cursor-pointer"
               >
                 <div className="mb-4 bg-soft-grey aspect-square overflow-hidden rounded-md relative">

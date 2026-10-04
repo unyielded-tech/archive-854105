@@ -15,6 +15,13 @@ import { ContactPage } from '@/pages/ContactPage'
 import { AboutPage } from '@/pages/AboutPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { CustomerAuthPage } from '@/pages/CustomerAuthPage'
+import { OrderConfirmationPage } from '@/pages/OrderConfirmationPage'
+import { TrackOrderPage } from '@/pages/TrackOrderPage'
+import { WishlistPage } from '@/pages/WishlistPage'
+import { JournalPage, JournalArticlePage } from '@/pages/JournalPage'
+import { LookbookPage } from '@/pages/LookbookPage'
+import { CollectionDetailPage } from '@/pages/CollectionDetailPage'
+import { FaqPage, ShippingReturnsPage, PrivacyPage, TermsPage } from '@/pages/InfoPages'
 
 // Admin Pages
 import { AdminLogin } from '@/pages/admin/AdminLogin'
@@ -60,6 +67,19 @@ export function App() {
         <Route path="/login" element={<CustomerAuthPage />} />
         <Route path="/register" element={<CustomerAuthPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
+        <Route path="/collections/:slug" element={<CollectionDetailPage />} />
+        <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
+        <Route path="/order-confirmation" element={<TrackOrderPage />} />
+        <Route path="/track-order" element={<TrackOrderPage />} />
+        <Route path="/track-order/:orderId" element={<TrackOrderPage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
+        <Route path="/journal" element={<JournalPage />} />
+        <Route path="/journal/:slug" element={<JournalArticlePage />} />
+        <Route path="/lookbook" element={<LookbookPage />} />
+        <Route path="/faq" element={<FaqPage />} />
+        <Route path="/shipping-returns" element={<ShippingReturnsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/about" element={<AboutPage />} />
 

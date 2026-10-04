@@ -38,8 +38,9 @@ export function AdminDashboard() {
       ) : (
         <>
           <div className="adm-stats">
-            <div className="adm-stat"><small>Revenue</small><b>{money(stats?.totalRevenue)}</b></div>
-            <div className="adm-stat"><small>Orders</small><b>{stats?.totalOrders || 0}</b></div>
+            <div className="adm-stat"><small>New orders</small><b>{stats?.pendingOrders || 0}</b></div>
+            <div className="adm-stat"><small>All orders</small><b>{stats?.totalOrders || 0}</b></div>
+            <div className="adm-stat"><small>Revenue (paid)</small><b>{money(stats?.totalRevenue)}</b></div>
             <div className="adm-stat"><small>Customers</small><b>{stats?.totalCustomers || 0}</b></div>
             <div className="adm-stat"><small>Products</small><b>{stats?.totalProducts || 0}</b></div>
           </div>
@@ -47,13 +48,13 @@ export function AdminDashboard() {
           <section className="adm-section">
             <h2>Recent orders</h2>
             {(stats?.recentOrders || []).length === 0 ? (
-              <p className="adm-meta" style={{ padding: '14px 0' }}>No paid orders yet.</p>
+              <p className="adm-meta" style={{ padding: '14px 0' }}>No orders yet.</p>
             ) : (
               (stats.recentOrders as any[]).slice(0, 5).map((o) => (
                 <div className="adm-line" key={o.id}>
                   <div>
                     <div className="serif">{o.orderId || o.id}</div>
-                    <div className="adm-meta">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ''}</div>
+                    <div className="adm-meta">{[o.customerName, o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ''].filter(Boolean).join(' · ')}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div>{money(o.total)}</div>
@@ -62,6 +63,7 @@ export function AdminDashboard() {
                 </div>
               ))
             )}
+            <Link to="/admin/orders" className="adm-text" style={{ display: 'inline-block' }}>View all orders</Link>
           </section>
 
           <section className="adm-section">

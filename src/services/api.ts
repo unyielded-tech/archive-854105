@@ -408,3 +408,11 @@ export async function getVideoUploadTarget(
     body: JSON.stringify({ contentType }),
   })
 }
+
+
+export async function updateOrder(id: string, changes: Record<string, unknown>): Promise<{ message: string }> {
+  return apiFetch(`/admin/orders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(changes),
+  })
+}

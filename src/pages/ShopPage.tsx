@@ -1,205 +1,150 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { SlidersHorizontal, X } from 'lucide-react'
 import { MainLayout } from '@/layouts/MainLayout'
-import { getProducts, getCategories, getCollections } from '@/services/firestore'
-import type { Product, Category, Collection } from '@/types'
-import { Filter, X } from 'lucide-react'
+import { ProductCard } from '@/components/ProductCard'
+import { getProducts } from '@/services/firestore'
+import type { Product } from '@/types'
+import { inr } from '@/lib/format'
+import '@/styles/store.css'
+
+const priceOf = (p: Product) => (p.salePrice && p.salePrice > 0 && p.salePrice < p.price ? p.salePrice : p.price)
+const NEW_DAYS = 30
 
 export function ShopPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [drawer, setDrawer] = useState(false)
 
-  // Filter state
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '')
-  const [selectedCollection, setSelectedCollection] = useState(searchParams.get('collection') || '')
-  const [priceRange, setPriceRange] = useState([0, 100000])
-  const [search, setSearch] = useState(searchParams.get('search') || '')
-  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest')
+  const category = params.get('category') || ''
+  const search = params.get('search') || ''
+  const sort = params.get('sort') || 'newest'
+  const onlySale = params.get('sale') === 'true'
+  const onlyNew = params.get('new') === 'true'
+  const size = params.get('size') || ''
+  const maxPrice = Number(params.get('max') || 0)
 
-  // Load initial data
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true)
-        const [prods, cats, colls] = await Promise.all([
-          getProducts({ published: true, limit: 100 }),
-          getCategories(),
-          getCollections(),
-        ])
-        setProducts(prods)
-        setCategories(cats)
-        setCollections(colls)
-      } catch (error) {
-        console.error('Failed to load shop data:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
+    getProducts({ published: true, limit: 500 })
+      .then(setProducts)
+      .catch((e) => console.error('Failed to load shop data:', e))
+      .finally(() => setLoading(false))
   }, [])
 
-  // Filter products
-  const filteredProducts = products.filter((p) => {
-    if (selectedCategory && p.category !== selectedCategory) return false
-    if (selectedCollection && p.collection !== selectedCollection) return false
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false
-    if (p.price > priceRange[1] || p.price < priceRange[0]) return false
-    return true
-  })
-
-  // Sort products
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const priceA = a.salePrice || a.price
-    const priceB = b.salePrice || b.price
-    switch (sortBy) {
-      case 'price-low': return priceA - priceB
-      case 'price-high': return priceB - priceA
-      case 'popular': return b.viewCount - a.viewCount
-      default: return b.createdAt.getTime() - a.createdAt.getTime()
-    }
-  })
-
-  const allSizes = Array.from(new Set(products.flatMap((p) => p.sizes)))
-  const allColors = Array.from(new Set(products.flatMap((p) => p.colors.map((c) => c.name))))
-
-  const handleFilterChange = () => {
-    const params = new URLSearchParams()
-    if (selectedCategory) params.set('category', selectedCategory)
-    if (selectedCollection) params.set('collection', selectedCollection)
-    if (search) params.set('search', search)
-    if (sortBy !== 'newest') params.set('sort', sortBy)
-    setSearchParams(params)
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setParams(next, { replace: true })
   }
 
-  useEffect(() => {
-    handleFilterChange()
-  }, [selectedCategory, selectedCollection, search, sortBy])
+  const categories = useMemo(() => Array.from(new Set(products.map((p) => p.category).filter(Boolean))), [products])
+  const sizes = useMemo(() => Array.from(new Set(products.flatMap((p) => p.sizes || []))), [products])
+  const topPrice = useMemo(() => Math.max(1000, ...products.map(priceOf)), [products])
+
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const cutoff = Date.now() - NEW_DAYS * 86400000
+    let list = products.filter((p) => {
+      if (category && p.category !== category) return false
+      if (onlySale && !(p.salePrice && p.salePrice < p.price)) return false
+      if (onlyNew && !(p.newArrival || new Date(p.createdAt).getTime() > cutoff)) return false
+      if (size && !(p.sizes || []).includes(size)) return false
+      if (maxPrice && priceOf(p) > maxPrice) return false
+      if (q && !`${p.name} ${p.category} ${p.tags?.join(' ') || ''}`.toLowerCase().includes(q)) return false
+      return true
+    })
+    list = [...list].sort((a, b) => {
+      if (sort === 'price-low') return priceOf(a) - priceOf(b)
+      if (sort === 'price-high') return priceOf(b) - priceOf(a)
+      if (sort === 'popular') return (b.viewCount || 0) - (a.viewCount || 0)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+    return list
+  }, [products, category, onlySale, onlyNew, size, maxPrice, search, sort])
+
+  const heading = onlySale ? 'Sale' : onlyNew ? 'New arrivals' : category || (search ? `Results for “${search}”` : 'Shop')
+  const activeFilters = [size && `Size ${size}`, maxPrice ? `Under ${inr(maxPrice)}` : '', search && `“${search}”`].filter(Boolean) as string[]
 
   return (
     <MainLayout>
-      <div className="bg-off-white border-b border-soft-grey py-8 md:py-12">
-        <div className="container">
-          <h1 className="text-h1 md:text-display-sm font-display mb-2">Shop</h1>
-          <p className="text-body-lg text-medium-grey">{sortedProducts.length} products</p>
-        </div>
-      </div>
+      <div className="st-wrap" style={{ paddingTop: 16, paddingBottom: 32 }}>
+        <h1 className="st-page-title">{heading}</h1>
+        <p className="st-sub" style={{ marginBottom: 10 }}>{loading ? 'Loading…' : `${shown.length} product${shown.length === 1 ? '' : 's'}`}</p>
 
-      <div className="container py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Filters */}
-          <div className={`lg:col-span-1 ${mobileFiltersOpen ? 'fixed inset-0 z-40 bg-white overflow-y-auto' : 'hidden lg:block'}`}>
-            {mobileFiltersOpen && (
-              <div className="sticky top-0 bg-white border-b border-soft-grey p-4 flex justify-between">
-                <h3 className="font-semibold">Filters</h3>
-                <button onClick={() => setMobileFiltersOpen(false)}><X size={20} /></button>
-              </div>
-            )}
-            <div className="p-4 md:p-0 space-y-8">
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Category</h3>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" name="category" value="" checked={selectedCategory === ''} onChange={(e) => setSelectedCategory(e.target.value)} className="w-4 h-4" />
-                    All
-                  </label>
-                  {categories.map((cat) => (
-                    <label key={cat.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="radio" name="category" value={cat.id} checked={selectedCategory === cat.id} onChange={(e) => setSelectedCategory(e.target.value)} className="w-4 h-4" />
-                      {cat.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Collection</h3>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" name="collection" value="" checked={selectedCollection === ''} onChange={(e) => setSelectedCollection(e.target.value)} className="w-4 h-4" />
-                    All
-                  </label>
-                  {collections.map((coll) => (
-                    <label key={coll.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="radio" name="collection" value={coll.id} checked={selectedCollection === coll.id} onChange={(e) => setSelectedCollection(e.target.value)} className="w-4 h-4" />
-                      {coll.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Price</h3>
-                <div className="space-y-4">
-                  <input type="range" min="0" max="100000" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])} className="w-full" />
-                  <div className="flex justify-between text-sm">
-                    <span>₹{priceRange[0]}</span>
-                    <span>₹{priceRange[1]}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {categories.length > 0 && (
+          <div className="chips">
+            <button className={`chip ${!category ? 'on' : ''}`} onClick={() => setParam('category', '')}>All</button>
+            {categories.map((c) => (
+              <button key={c} className={`chip ${category === c ? 'on' : ''}`} onClick={() => setParam('category', c)}>{c}</button>
+            ))}
           </div>
+        )}
 
-          {/* Products */}
-          <div className="lg:col-span-3">
-            <div className="flex justify-between items-center mb-8 pb-6 border-b border-soft-grey">
-              <button onClick={() => setMobileFiltersOpen(true)} className="lg:hidden flex items-center gap-2 text-sm uppercase tracking-wider font-semibold">
-                <Filter size={16} />
-                Filters
-              </button>
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="text-sm border border-medium-grey rounded-md px-3 py-2">
-                <option value="newest">Newest</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="popular">Most Popular</option>
-              </select>
-            </div>
-
-            {loading && <div className="text-center py-12"><p className="text-body-lg text-medium-grey">Loading...</p></div>}
-            {!loading && sortedProducts.length === 0 && <div className="text-center py-12"><p className="text-body-lg text-medium-grey">No products found</p></div>}
-
-            {!loading && sortedProducts.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                {sortedProducts.map((product, idx) => (
-                  <motion.div key={product.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
-                    <ShopProductCard product={product} />
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="toolbar">
+          <button className="chip" onClick={() => setDrawer(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <SlidersHorizontal size={14} /> Filters{activeFilters.length ? ` (${activeFilters.length})` : ''}
+          </button>
+          <select className="st-select" style={{ width: 'auto', minHeight: 34, fontSize: 14 }} value={sort} onChange={(e) => setParam('sort', e.target.value === 'newest' ? '' : e.target.value)}>
+            <option value="newest">Newest</option>
+            <option value="price-low">Price: low to high</option>
+            <option value="price-high">Price: high to low</option>
+            <option value="popular">Popular</option>
+          </select>
         </div>
-      </div>
-    </MainLayout>
-  )
-}
 
-function ShopProductCard({ product }: { product: Product }) {
-  const primaryImage = product.images.find((img) => img.isPrimary) || product.images[0]
-  return (
-    <a href={`/product/${product.slug}`} className="group block">
-      <div className="relative overflow-hidden bg-off-white aspect-square mb-4">
-        {primaryImage && <img src={primaryImage.url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
-        {product.sale && <div className="absolute top-4 right-4 bg-error text-white px-3 py-1 text-xs uppercase tracking-wider font-semibold">Sale</div>}
-        {product.newArrival && <div className="absolute top-4 left-4 bg-black text-white px-3 py-1 text-xs uppercase tracking-wider font-semibold">New</div>}
-      </div>
-      <h3 className="text-body-md font-semibold group-hover:opacity-75">{product.name}</h3>
-      <p className="text-body-sm text-medium-grey mt-1 line-clamp-2">{product.shortDescription}</p>
-      <div className="flex items-center gap-2 mt-4">
-        {product.salePrice ? (
-          <>
-            <span className="text-body-md font-semibold">₹{product.salePrice}</span>
-            <span className="text-body-sm text-medium-grey line-through">₹{product.price}</span>
-          </>
+        {activeFilters.length > 0 && (
+          <div className="chips">
+            {activeFilters.map((f) => <span key={f} className="chip on">{f}</span>)}
+            <button className="chip" onClick={() => setParams(category ? { category } : {}, { replace: true })}>Clear</button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="st-empty">Loading…</div>
+        ) : shown.length === 0 ? (
+          <div className="st-empty">
+            {products.length === 0 ? 'New styles are on the way. Check back soon.' : 'No products match your filters.'}
+          </div>
         ) : (
-          <span className="text-body-md font-semibold">₹{product.price}</span>
+          <div className="pgrid wide">
+            {shown.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
         )}
       </div>
-    </a>
+
+      {drawer && (
+        <>
+          <div className="drawer-back" onClick={() => setDrawer(false)} />
+          <div className="drawer">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="st-title">Filters</h2>
+              <button className="hd-icon" onClick={() => setDrawer(false)} aria-label="Close"><X size={20} /></button>
+            </div>
+
+            {sizes.length > 0 && (
+              <>
+                <label className="st-label">Size</label>
+                <div className="chips" style={{ flexWrap: 'wrap' }}>
+                  <button className={`chip ${!size ? 'on' : ''}`} onClick={() => setParam('size', '')}>Any</button>
+                  {sizes.map((s) => (
+                    <button key={s} className={`chip ${size === s ? 'on' : ''}`} onClick={() => setParam('size', s)}>{s}</button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <label className="st-label">Max price {maxPrice ? `· ${inr(maxPrice)}` : ''}</label>
+            <input type="range" min={0} max={topPrice} step={100} value={maxPrice || topPrice} onChange={(e) => setParam('max', Number(e.target.value) >= topPrice ? '' : e.target.value)} style={{ width: '100%' }} />
+
+            <div style={{ display: 'flex', gap: 8, margin: '16px 0 4px' }}>
+              <button className="st-btn ghost block" onClick={() => { const n = new URLSearchParams(); if (category) n.set('category', category); setParams(n, { replace: true }) }}>Reset</button>
+              <button className="st-btn block" onClick={() => setDrawer(false)}>Show {shown.length}</button>
+            </div>
+          </div>
+        </>
+      )}
+    </MainLayout>
   )
 }

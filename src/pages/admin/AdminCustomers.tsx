@@ -52,7 +52,8 @@ export function AdminCustomers() {
               <p className="adm-name">{c.displayName || c.email || 'Customer'}</p>
               {c.displayName && c.email && <p className="adm-meta">{c.email}</p>}
               {c.phoneNumber && <p className="adm-meta">{c.phoneNumber}</p>}
-              {c.createdAt && <p className="adm-meta">Joined {new Date(c.createdAt).toLocaleDateString()}</p>}
+              {c.orders > 0 && <p className="adm-meta">{c.orders} order{c.orders === 1 ? '' : 's'} · ₹{Number(c.spent || 0).toLocaleString('en-IN')}</p>}
+              {c.createdAt && <p className="adm-meta">Since {new Date(c.createdAt).toLocaleDateString()}</p>}
             </div>
           ))}
         </div>

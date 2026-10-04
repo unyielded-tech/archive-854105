@@ -1,149 +1,176 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'framer-motion'
+import { Truck, Wallet, MessageCircle } from 'lucide-react'
 import { Marquee } from '@/components/fx'
 import { StoreMap } from '@/components/StoreMap'
+import { ProductCard } from '@/components/ProductCard'
 import { media } from '@/config/media'
 import { MainLayout } from '@/layouts/MainLayout'
 import { getProducts, getCollections, getHomeBanner, type HomeBannerData } from '@/services/firestore'
+import { imageOf, FREE_SHIPPING_ABOVE, inr } from '@/lib/format'
 import type { Product, Collection } from '@/types'
+import '@/styles/store.css'
 
 export function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
   const [banner, setBanner] = useState<HomeBannerData | null>(null)
 
   useEffect(() => {
-    const loadContent = async () => {
-      try {
-        const [products, cols] = await Promise.all([
-          getProducts({ featured: true, published: true, limit: 8 }),
-          getCollections(),
-        ])
-        setFeaturedProducts(products)
-        setCollections(cols.slice(0, 3))
-      } catch (error) {
-        console.error('Failed to load homepage content:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadContent()
+    Promise.all([getProducts({ published: true, limit: 200 }), getCollections()])
+      .then(([prods, cols]) => { setProducts(prods); setCollections(cols.slice(0, 4)) })
+      .catch((e) => console.error('Failed to load homepage content:', e))
+      .finally(() => setLoading(false))
     getHomeBanner().then(setBanner).catch(() => {})
   }, [])
 
   const { scrollY } = useScroll()
-  const heroY = useTransform(scrollY, [0, 800], [0, 160])
+  const heroY = useTransform(scrollY, [0, 800], [0, 120])
+
+  const featured = useMemo(() => products.filter((p) => p.featured), [products])
+  const deals = useMemo(() => products.filter((p) => p.salePrice && p.salePrice > 0 && p.salePrice < p.price), [products])
+  const latest = useMemo(() => products.slice(0, 10), [products])
+  const categories = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const p of products) if (p.category && !seen.has(p.category)) seen.set(p.category, imageOf(p))
+    return Array.from(seen, ([name, img]) => ({ name, img }))
+  }, [products])
+
   const bannerUrl = banner?.url && banner?.type ? banner.url : ''
-  const first = bannerUrl || collections[0]?.heroImage || featuredProducts[0]?.images?.[0]?.url
+  const heroFallback = collections[0]?.heroImage || (featured[0] ? imageOf(featured[0]) : '') || (products[0] ? imageOf(products[0]) : '')
+  const hasMedia = !!(bannerUrl || heroFallback)
   const line1 = banner?.line1?.trim() || 'The New'
   const line2 = banner?.line2?.trim() || 'Collection'
 
   return (
     <MainLayout>
-      <section className={`relative h-[85svh] md:h-[92vh] overflow-hidden bg-[#EDE8E0] ${first ? 'text-[#F7F4EF]' : 'text-[#111]'}`}>
-        {bannerUrl && banner?.type === 'video'
-          ? <video src={bannerUrl} autoPlay loop muted playsInline preload="auto" className="absolute inset-0 w-full h-full object-cover" />
-          : bannerUrl && banner?.type === 'image'
-            ? <motion.img style={{ y: heroY }} src={bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />
-            : media.heroVideo
-              ? <video src={media.heroVideo} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover" />
-              : first && <motion.img style={{ y: heroY }} src={first} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />}
-        {first && <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />}
-        <div className="absolute bottom-0 inset-x-0 px-5 md:px-16 pb-12">
-          <h1 className="serif text-5xl sm:text-6xl md:text-8xl leading-[1.05]">
+      {/* Hero */}
+      <section className={`relative h-[56svh] md:h-[74vh] overflow-hidden bg-[#EDE8E0] ${hasMedia ? 'text-[#F7F4EF]' : 'text-[#111]'}`}>
+        {bannerUrl && banner?.type === 'video' ? (
+          <video src={bannerUrl} autoPlay loop muted playsInline preload="auto" className="absolute inset-0 w-full h-full object-cover" />
+        ) : bannerUrl && banner?.type === 'image' ? (
+          <motion.img style={{ y: heroY }} src={bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />
+        ) : media.heroVideo ? (
+          <video src={media.heroVideo} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          heroFallback && <motion.img style={{ y: heroY }} src={heroFallback} alt="" className="absolute inset-0 w-full h-full object-cover kenburns" />
+        )}
+        {hasMedia && <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />}
+        <div className="absolute bottom-0 inset-x-0 px-5 md:px-16 pb-8 md:pb-12">
+          <h1 className="serif text-4xl sm:text-5xl md:text-7xl leading-[1.05]">
             <span className="reveal-line"><span>{line1}</span></span>
             <span className="reveal-line"><span style={{ animationDelay: '.2s' }}><em>{line2}</em></span></span>
           </h1>
-          <div className="fade-in mt-8 flex gap-6 items-center">
-            <Link to="/shop" className={`btn border ${first ? 'bg-[#F7F4EF] text-black border-[#F7F4EF]' : 'btn-primary'}`}>Discover</Link>
-            <Link to="/collections" className="underline-grow text-xs tracking-[0.25em] uppercase">Lookbook</Link>
+          <div className="fade-in mt-5 flex gap-5 items-center">
+            <Link to="/shop" className={`st-btn ${hasMedia ? '' : ''}`} style={hasMedia ? { background: '#F7F4EF', color: '#111', borderColor: '#F7F4EF' } : undefined}>Shop now</Link>
+            <Link to="/shop?sale=true" className="underline-grow text-xs tracking-[0.25em] uppercase">View deals</Link>
           </div>
         </div>
       </section>
 
-      <div className="py-6 border-b border-black/10 serif text-2xl text-[#6f6a62]">
-        <Marquee items={['Katihar, Bihar', 'Premium Streetwear', 'Limited Pieces', 'New Market']} />
-      </div>
-
-      {collections.length > 0 && (
-        <section className="px-5 md:px-16 py-24 md:py-36">
-          <h2 className="serif text-4xl md:text-6xl text-center mb-16">Collections</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-            {collections.map((c, idx) => (
-              <motion.div key={c.id} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.15, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
-                <Link to={`/collections/${c.slug}`} className="group block">
-                  {c.heroImage && (<div className="overflow-hidden aspect-[3/4] mb-6"><img src={c.heroImage} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[1800ms]" /></div>)}
-                  <h3 className="serif text-2xl text-center">{c.name}</h3>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {featuredProducts.length > 0 && (
-        <section className="px-5 md:px-16 pb-24 md:pb-36">
-          <h2 className="serif text-4xl md:text-6xl text-center mb-16">Featured</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-12">
-            {featuredProducts.map((p, idx) => (
-              <motion.div key={p.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (idx % 4) * 0.1, duration: 1 }}>
-                <ProductCard product={p} />
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="px-5 md:px-16 py-24 border-t border-black/10 grid md:grid-cols-2 gap-12 items-center">
-        <div>
-          <h2 className="serif text-4xl md:text-6xl mb-6">Visit the Store</h2>
-          <p className="text-lg mb-2">{media.address}</p>
-          <p className="mb-8 text-[#6f6a62]">{media.phone}</p>
-          <div className="flex gap-4 flex-wrap">
-            <a href={`https://wa.me/${media.whatsapp}`} target="_blank" rel="noreferrer" className="btn btn-primary inline-block">WhatsApp</a>
-            <a href={`tel:+${media.whatsapp}`} className="btn btn-line inline-block">Call</a>
-          </div>
+      <div className="st-wrap">
+        {/* Trust bar */}
+        <div className="trust" style={{ marginTop: 12 }}>
+          <div><Truck size={18} /><span><b>Free delivery</b>above {inr(FREE_SHIPPING_ABOVE)}</span></div>
+          <div><Wallet size={18} /><span><b>Cash on delivery</b>pay when it arrives</span></div>
+          <div><MessageCircle size={18} /><span><b>WhatsApp help</b>we reply fast</span></div>
         </div>
-        <StoreMap />
-      </section>
-    </MainLayout>
-  )
-}
 
-function ProductCard({ product }: { product: Product }) {
-  const primaryImage = product.images.find((img) => img.isPrimary) || product.images[0]
-
-  return (
-    <Link to={`/product/${product.slug}`} className="group">
-      <div className="relative overflow-hidden bg-[#EDE8E0] aspect-[3/4] mb-4">
-        {primaryImage && (
-          <img
-            src={primaryImage.url}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        )}
-        {product.sale && (
-          <div className="absolute top-4 right-4 bg-black text-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.2em]">
-            Sale
-          </div>
-        )}
-      </div>
-      <h3 className="text-body-md font-semibold group-hover:opacity-75">{product.name}</h3>
-      <p className="text-body-sm text-medium-grey mt-2">{product.shortDescription}</p>
-      <div className="flex items-center gap-2 mt-4">
-        {product.salePrice ? (
-          <>
-            <span className="text-body-md font-semibold">₹{product.salePrice}</span>
-            <span className="text-body-sm text-medium-grey line-through">₹{product.price}</span>
-          </>
+        {loading ? (
+          <div className="st-empty">Loading…</div>
+        ) : products.length === 0 ? (
+          <div className="st-empty">New styles are on the way. Check back soon.</div>
         ) : (
-          <span className="text-body-md font-semibold">₹{product.price}</span>
+          <>
+            {categories.length > 0 && (
+              <section className="st-sec">
+                <div className="st-sec-head"><h2 className="st-title">Shop by category</h2></div>
+                <div className="cats">
+                  {categories.map((c) => (
+                    <Link key={c.name} to={`/shop?category=${encodeURIComponent(c.name)}`} className="cat">
+                      <div className="cat-img">{c.img ? <img src={c.img} alt="" loading="lazy" /> : c.name.charAt(0)}</div>
+                      <span>{c.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {deals.length > 0 && (
+              <section className="st-sec">
+                <div className="st-sec-head">
+                  <h2 className="st-title">Deals of the day</h2>
+                  <Link to="/shop?sale=true" className="st-link">See all</Link>
+                </div>
+                <div className="hscroll">
+                  {deals.slice(0, 12).map((p) => <ProductCard key={p.id} product={p} />)}
+                </div>
+              </section>
+            )}
+
+            <section className="st-sec">
+              <div className="st-sec-head">
+                <h2 className="st-title">New arrivals</h2>
+                <Link to="/shop?new=true" className="st-link">See all</Link>
+              </div>
+              <div className="hscroll">
+                {latest.map((p) => <ProductCard key={p.id} product={p} />)}
+              </div>
+            </section>
+
+            <div className="py-3 border-y border-black/10 serif text-xl text-[#6f6a62]" style={{ margin: '8px 0' }}>
+              <Marquee items={['Katihar, Bihar', 'Premium Streetwear', 'Limited Pieces', 'New Market']} />
+            </div>
+
+            <section className="st-sec">
+              <div className="st-sec-head">
+                <h2 className="st-title">{featured.length > 0 ? 'Featured' : 'Latest products'}</h2>
+                <Link to="/shop" className="st-link">Shop all</Link>
+              </div>
+              <div className="pgrid wide">
+                {(featured.length > 0 ? featured : latest).slice(0, 10).map((p) => <ProductCard key={p.id} product={p} />)}
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 18 }}>
+                <Link to="/shop" className="st-btn ghost">View all products</Link>
+              </div>
+            </section>
+
+            {collections.length > 0 && (
+              <section className="st-sec">
+                <div className="st-sec-head">
+                  <h2 className="st-title">Collections</h2>
+                  <Link to="/collections" className="st-link">See all</Link>
+                </div>
+                <div className="pgrid">
+                  {collections.map((c) => (
+                    <Link key={c.id} to={`/collections/${c.slug}`} className="pcard">
+                      <div className="pcard-img">{c.heroImage && <img src={c.heroImage} alt={c.name} loading="lazy" />}</div>
+                      <div className="pcard-body"><div className="pcard-name" style={{ minHeight: 0, margin: 0 }}>{c.name}</div></div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
+
+        <section className="st-sec" style={{ paddingBottom: 28 }}>
+          <div className="grid md:grid-cols-2 gap-8 items-center" style={{ display: 'grid', gap: 20 }}>
+            <div>
+              <h2 className="st-title" style={{ marginBottom: 8 }}>Visit the store</h2>
+              <p style={{ margin: '0 0 4px' }}>{media.address}</p>
+              <p style={{ margin: '0 0 14px', color: 'var(--stone)' }}>{media.phone}</p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <a href={`https://wa.me/${media.whatsapp}`} target="_blank" rel="noreferrer" className="st-btn">WhatsApp</a>
+                <a href={`tel:+${media.whatsapp}`} className="st-btn ghost">Call</a>
+              </div>
+            </div>
+            <StoreMap />
+          </div>
+        </section>
       </div>
-    </Link>
+    </MainLayout>
   )
 }

@@ -1,145 +1,124 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { MainLayout } from '@/layouts/MainLayout'
 import { useCartStore } from '@/store/cartStore'
-import { Link } from 'react-router-dom'
-import { Trash2, Plus, Minus } from 'lucide-react'
-import { useState } from 'react'
+import { applyCoupon } from '@/services/firestore'
+import { inr, imageOf, couponDiscount, shippingFor, FREE_SHIPPING_ABOVE } from '@/lib/format'
+import type { Coupon } from '@/types'
+import '@/styles/store.css'
 
 export function CartPage() {
-  const items = useCartStore((state) => state.items)
-  const removeItem = useCartStore((state) => state.removeItem)
-  const updateQuantity = useCartStore((state) => state.updateQuantity)
-  const clearCart = useCartStore((state) => state.clearCart)
-  const [couponCode, setCouponCode] = useState('')
+  const navigate = useNavigate()
+  const items = useCartStore((s) => s.items)
+  const couponCode = useCartStore((s) => s.couponCode)
+  const removeItem = useCartStore((s) => s.removeItem)
+  const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const setCoupon = useCartStore((s) => s.applyCoupon)
+  const removeCoupon = useCartStore((s) => s.removeCoupon)
+  const [code, setCode] = useState('')
+  const [coupon, setCouponData] = useState<Coupon | null>(null)
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shipping = subtotal > 2000 ? 0 : 100
-  const total = subtotal + shipping
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+
+  // Re-check a saved coupon against the current subtotal.
+  useEffect(() => {
+    if (!couponCode) { setCouponData(null); return }
+    applyCoupon(couponCode, subtotal).then((c) => {
+      if (c) setCouponData(c)
+      else { setCouponData(null); removeCoupon() }
+    }).catch(() => {})
+  }, [couponCode, subtotal])
+
+  const discount = coupon ? couponDiscount(coupon, subtotal) : 0
+  const shipping = shippingFor(subtotal - discount, 'standard')
+  const total = subtotal - discount + shipping
+
+  const apply = async () => {
+    const c = code.trim().toUpperCase()
+    if (!c) return
+    try {
+      const found = await applyCoupon(c, subtotal)
+      if (!found) { toast.error('This coupon is not valid for your bag'); return }
+      setCoupon(found.code)
+      setCouponData(found)
+      setCode('')
+      toast.success('Coupon applied')
+    } catch {
+      toast.error('Could not check the coupon. Try again.')
+    }
+  }
 
   if (items.length === 0) {
     return (
       <MainLayout>
-        <div className="container py-20 text-center">
-          <h1 className="text-h1 mb-4">Shopping Bag</h1>
-          <p className="text-body-lg text-medium-grey mb-8">Your bag is empty</p>
-          <Link to="/shop" className="btn btn-primary btn-lg">Continue Shopping</Link>
+        <div className="st-wrap st-empty" style={{ minHeight: '50vh' }}>
+          <h1 className="st-page-title">Your bag is empty</h1>
+          <p className="st-sub" style={{ marginBottom: 16 }}>Add something you love and it will show up here.</p>
+          <Link to="/shop" className="st-btn">Continue shopping</Link>
         </div>
       </MainLayout>
     )
   }
 
   return (
-    <MainLayout>
-      <div className="container py-12">
-        <h1 className="text-h1 md:text-display-sm font-display mb-12">Shopping Bag</h1>
+    <MainLayout hideFab>
+      <div className="st-wrap">
+        <h1 className="st-page-title" style={{ paddingTop: 16 }}>Shopping bag</h1>
+        <p className="st-sub">{items.length} item{items.length === 1 ? '' : 's'}</p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-          {/* Items */}
-          <div className="lg:col-span-2">
-            <div className="space-y-6 border-b border-soft-grey pb-8 mb-8">
-              {items.map((item) => (
-                <div key={item.id} className="flex gap-6">
-                  {/* Image */}
-                  <Link to={`/product/${item.product?.slug || ''}`} className="flex-shrink-0">
-                    <div className="w-24 h-24 bg-off-white rounded-md overflow-hidden">
-                      {item.product?.images[0] && (
-                        <img src={item.product.images[0].url} alt={item.product.name} className="w-full h-full object-cover" />
-                      )}
+        <div className="lay2">
+          <div>
+            {items.map((item) => (
+              <div className="line" key={item.id}>
+                <Link to={`/product/${item.product?.slug || ''}`} className="line-img">
+                  {item.product && imageOf(item.product) ? <img src={imageOf(item.product)} alt="" /> : null}
+                </Link>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Link to={`/product/${item.product?.slug || ''}`} style={{ fontSize: '.92rem', lineHeight: 1.25, display: 'block' }}>{item.product?.name || 'Product'}</Link>
+                  <div className="st-sub" style={{ fontSize: '.78rem', margin: '3px 0 8px' }}>{[item.size && `Size ${item.size}`, item.color].filter(Boolean).join(' · ')}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div className="qty">
+                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} aria-label="Less">−</button>
+                      <span>{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, Math.min(10, item.quantity + 1))} aria-label="More">+</button>
                     </div>
-                  </Link>
-
-                  {/* Details */}
-                  <div className="flex-1">
-                    <Link to={`/product/${item.product?.slug || ''}`} className="text-body-md font-semibold hover:opacity-75">
-                      {item.product?.name || 'Product'}
-                    </Link>
-                    <div className="text-body-sm text-medium-grey mt-1 space-y-0.5">
-                      <p>Size: {item.size}</p>
-                      <p>Color: {item.color}</p>
-                    </div>
-                    <p className="text-body-md font-semibold mt-3">₹{item.price}</p>
-                  </div>
-
-                  {/* Quantity & Actions */}
-                  <div className="flex flex-col items-end justify-between">
-                    <button onClick={() => removeItem(item.id)} className="p-2 hover:bg-off-white rounded-md transition">
-                      <Trash2 size={16} />
-                    </button>
-
-                    {/* Quantity Selector */}
-                    <div className="flex items-center border border-medium-grey rounded-md">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-2 py-1 hover:bg-off-white">
-                        <Minus size={14} />
-                      </button>
-                      <span className="px-3 py-1 text-sm font-semibold min-w-8 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-2 py-1 hover:bg-off-white">
-                        <Plus size={14} />
-                      </button>
-                    </div>
-
-                    {/* Line total */}
-                    <p className="text-body-md font-semibold">₹{item.price * item.quantity}</p>
+                    <div style={{ fontWeight: 500 }}>{inr(item.price * item.quantity)}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Continue Shopping */}
-            <Link to="/shop" className="text-sm uppercase tracking-wider font-semibold hover:opacity-75">
-              ← Continue Shopping
-            </Link>
+                <button onClick={() => removeItem(item.id)} aria-label="Remove" style={{ background: 'none', border: 0, alignSelf: 'flex-start', padding: 4 }}><Trash2 size={16} /></button>
+              </div>
+            ))}
+            <Link to="/shop" className="st-link" style={{ display: 'inline-block', marginTop: 8 }}>← Continue shopping</Link>
           </div>
 
-          {/* Summary */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24 bg-off-white p-6 rounded-md space-y-6">
-              <h2 className="text-h4 font-display">Order Summary</h2>
-
-              <div className="space-y-3 py-6 border-y border-soft-grey">
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-medium-grey">Subtotal</span>
-                  <span>₹{subtotal.toFixed(2)}</span>
+          <div>
+            <div className="sum">
+              <label className="st-label" style={{ marginTop: 0 }}>Coupon code</label>
+              {coupon ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '.88rem' }}>
+                  <span><b style={{ fontWeight: 500 }}>{coupon.code}</b> applied</span>
+                  <button className="st-link" style={{ background: 'none', border: 0, cursor: 'pointer' }} onClick={removeCoupon}>Remove</button>
                 </div>
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-medium-grey">Shipping</span>
-                  <span>{shipping === 0 ? 'Free' : `₹${shipping}`}</span>
+              ) : (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input className="st-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Enter code" />
+                  <button className="st-btn" style={{ padding: '0 16px' }} onClick={apply}>Apply</button>
                 </div>
-                {shipping === 0 && <p className="text-xs text-success uppercase font-semibold">Free shipping on this order</p>}
+              )}
+
+              <div style={{ marginTop: 14 }}>
+                <div className="sum-row"><span>Subtotal</span><span>{inr(subtotal)}</span></div>
+                {discount > 0 && <div className="sum-row green"><span>Discount</span><span>−{inr(discount)}</span></div>}
+                <div className="sum-row"><span>Delivery</span><span>{shipping === 0 ? 'Free' : inr(shipping)}</span></div>
+                {shipping > 0 && <p className="st-sub" style={{ fontSize: '.74rem', margin: '2px 0 0' }}>Add {inr(FREE_SHIPPING_ABOVE + 1 - (subtotal - discount))} more for free delivery</p>}
+                <div className="sum-row total"><span>Total</span><span>{inr(total)}</span></div>
               </div>
+            </div>
 
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-3">Coupon Code</h3>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    placeholder="Enter code"
-                    className="flex-1 px-3 py-2 border border-medium-grey rounded-md text-sm focus:outline-none focus:border-black"
-                  />
-                  <button className="px-4 py-2 bg-black text-white rounded-md text-sm font-semibold hover:bg-charcoal">Apply</button>
-                </div>
-              </div>
-
-              <div className="py-6 border-t border-soft-grey">
-                <div className="flex justify-between mb-6">
-                  <span className="text-h5 font-semibold">Total</span>
-                  <span className="text-h4 font-semibold">₹{total.toFixed(2)}</span>
-                </div>
-
-                <Link to="/checkout" className="block w-full btn btn-primary btn-lg text-center mb-3">
-                  Proceed to Checkout
-                </Link>
-
-                <button onClick={clearCart} className="w-full btn btn-ghost text-sm">
-                  Clear Bag
-                </button>
-              </div>
-
-              <div className="pt-6 border-t border-soft-grey space-y-2 text-xs text-medium-grey">
-                <p>✓ Free shipping on orders over ₹2000</p>
-                <p>✓ Easy 30-day returns</p>
-                <p>✓ Secure checkout</p>
-              </div>
+            <div className="stick-cta">
+              <button className="st-btn block" onClick={() => navigate('/checkout')}>Checkout · {inr(total)}</button>
             </div>
           </div>
         </div>
