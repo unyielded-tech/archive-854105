@@ -1,73 +1,75 @@
-import {
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
-  type User,
-} from 'firebase/auth'
-import { doc, setDoc } from 'firebase/firestore'
-import { getFirebaseAuth, getFirebaseDb } from '@/lib/firebase'
+import type { User as SbUser } from '@supabase/supabase-js'
+import { getSupabase } from '@/lib/supabase'
 
-export function firebaseAuthMessage(error: unknown): string {
-  const code = typeof error === 'object' && error && 'code' in error ? String((error as any).code) : ''
-  if (code.includes('api-key-not-valid')) return 'Customer authentication is temporarily unavailable. Please try again later.'
-  if (code.includes('invalid-api-key')) return 'Customer authentication is temporarily unavailable. Please try again later.'
-  if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'Invalid email or password.'
-  if (code.includes('email-already-in-use')) return 'An account already exists with this email.'
-  if (code.includes('weak-password')) return 'Choose a stronger password.'
-  if (code.includes('invalid-email')) return 'Enter a valid email address.'
-  if (code.includes('too-many-requests')) return 'Too many attempts. Please wait and try again.'
-  if (code.includes('network-request-failed')) return 'Network error. Check your connection and try again.'
+export interface CustomerUser {
+  uid: string
+  email: string | null
+  displayName: string
+  emailVerified: boolean
+}
+
+const toUser = (u: SbUser): CustomerUser => ({
+  uid: u.id,
+  email: u.email ?? null,
+  displayName: (u.user_metadata?.displayName as string) || '',
+  emailVerified: !!u.email_confirmed_at,
+})
+
+export function authMessage(error: unknown): string {
+  const msg = String((error as any)?.message || '').toLowerCase()
+  if (msg.includes('not configured')) return 'Customer login is temporarily unavailable. Please try again later.'
+  if (msg.includes('invalid login') || msg.includes('invalid credentials')) return 'Invalid email or password.'
+  if (msg.includes('already registered') || msg.includes('already been registered')) return 'An account already exists with this email.'
+  if (msg.includes('password') && msg.includes('characters')) return 'Choose a stronger password (at least 6 characters).'
+  if (msg.includes('email not confirmed')) return 'Please confirm your email first. Check your inbox.'
+  if (msg.includes('rate limit') || msg.includes('too many')) return 'Too many attempts. Please wait and try again.'
+  if (msg.includes('fetch') || msg.includes('network')) return 'Network error. Check your connection and try again.'
   return 'Authentication could not be completed. Please try again.'
+}
+
+// Tell the server about the customer so they show up in the admin Customers page.
+async function syncProfile(accessToken?: string) {
+  if (!accessToken) return
+  try {
+    await fetch('/api/store/customers/sync', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } })
+  } catch { /* non-critical */ }
 }
 
 export async function registerCustomer(email: string, password: string, displayName: string) {
   try {
-    const auth = getFirebaseAuth()
-    const credential = await createUserWithEmailAndPassword(auth, email.trim(), password)
-    if (displayName.trim()) await updateProfile(credential.user, { displayName: displayName.trim() })
-    await sendEmailVerification(credential.user)
-
-    const db = getFirebaseDb()
-    await setDoc(doc(db, 'users', credential.user.uid), {
-      email: credential.user.email,
-      displayName: displayName.trim(),
-      role: 'customer',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }, { merge: true })
-
-    return credential.user
-  } catch (error) {
-    throw new Error(firebaseAuthMessage(error))
-  }
+    const { data, error } = await getSupabase().auth.signUp({
+      email: email.trim(), password, options: { data: { displayName: displayName.trim() } },
+    })
+    if (error) throw error
+    if (!data.user) throw new Error('Sign up failed')
+    await syncProfile(data.session?.access_token)
+    return toUser(data.user)
+  } catch (error) { throw new Error(authMessage(error)) }
 }
 
 export async function loginCustomer(email: string, password: string) {
   try {
-    const auth = getFirebaseAuth()
-    const credential = await signInWithEmailAndPassword(auth, email.trim(), password)
-    return credential.user
-  } catch (error) {
-    throw new Error(firebaseAuthMessage(error))
-  }
+    const { data, error } = await getSupabase().auth.signInWithPassword({ email: email.trim(), password })
+    if (error) throw error
+    await syncProfile(data.session?.access_token)
+    return toUser(data.user)
+  } catch (error) { throw new Error(authMessage(error)) }
 }
 
 export async function resetCustomerPassword(email: string) {
   try {
-    await sendPasswordResetEmail(getFirebaseAuth(), email.trim())
-  } catch (error) {
-    throw new Error(firebaseAuthMessage(error))
-  }
+    const { error } = await getSupabase().auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + '/login' })
+    if (error) throw error
+  } catch (error) { throw new Error(authMessage(error)) }
 }
 
-export function watchCustomerAuth(callback: (user: User | null) => void) {
-  return onAuthStateChanged(getFirebaseAuth(), callback)
+export function watchCustomerAuth(callback: (user: CustomerUser | null) => void) {
+  const sb = getSupabase()
+  sb.auth.getSession().then(({ data }) => callback(data.session ? toUser(data.session.user) : null))
+  const { data } = sb.auth.onAuthStateChange((_e, session) => callback(session ? toUser(session.user) : null))
+  return () => data.subscription.unsubscribe()
 }
 
 export async function logoutCustomer() {
-  await signOut(getFirebaseAuth())
+  await getSupabase().auth.signOut()
 }

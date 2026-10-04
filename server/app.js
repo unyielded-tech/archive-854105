@@ -5,6 +5,7 @@ import { sessionMiddleware } from './lib/session.js'
 import cors from 'cors'
 
 import { initializeFirebaseAdmin } from './lib/firebase-admin.js'
+import { storeRoutes } from './routes/store.js'
 import { adminAuthRoutes } from './routes/admin-auth.js'
 import adminProductsRoutes from './routes/admin-products.js'
 import adminOrdersRoutes from './routes/admin-orders.js'
@@ -31,6 +32,17 @@ app.use(sessionMiddleware)
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'archive-admin' }))
 
+app.get('/api/health/db', async (_req, res) => {
+  try {
+    const { error } = await initializeFirebaseAdmin().from('documents').select('id').limit(1)
+    if (error) return res.status(500).json({ db: 'error', message: error.message })
+    res.json({ db: 'ok' })
+  } catch (e) {
+    res.status(500).json({ db: 'error', message: e.message })
+  }
+})
+
+app.use('/api/store', storeRoutes)
 app.use('/api/admin/auth', adminAuthRoutes)
 app.use('/api/admin/products', adminProductsRoutes)
 app.use('/api/admin/orders', adminOrdersRoutes)

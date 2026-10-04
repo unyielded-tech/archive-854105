@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MainLayout } from '@/layouts/MainLayout'
 import { watchCustomerAuth, logoutCustomer } from '@/services/customerAuth'
-import type { User } from 'firebase/auth'
+import type { CustomerUser as User } from '@/services/customerAuth'
 import toast from 'react-hot-toast'
 
 export function AccountPage() {

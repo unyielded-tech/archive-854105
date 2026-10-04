@@ -52,7 +52,7 @@ adminAuthRoutes.post('/login', async (req, res) => {
     return res.json({ success: true, message: 'Logged in successfully', user: adminUser })
   } catch (error) {
     console.error('Admin login error:', error)
-    return res.status(503).json({ success: false, message: 'Admin service is unavailable. Check Firebase Admin configuration.' })
+    return res.status(503).json({ success: false, message: 'Admin service is unavailable. Check the SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY settings.' })
   }
 })
 
