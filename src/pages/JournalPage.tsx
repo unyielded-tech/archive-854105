@@ -4,10 +4,12 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { getArticles, getArticleBySlug } from '@/services/firestore'
 import type { JournalArticle } from '@/types'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 const when = (d: any) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '')
 
 export function JournalPage() {
+  useSeo({ title: 'Journal', description: 'Stories, style notes and news from ARCHIVE 854105.' })
   const [articles, setArticles] = useState<JournalArticle[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -50,6 +52,7 @@ export function JournalArticlePage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const [article, setArticle] = useState<JournalArticle | null>(null)
   const [loading, setLoading] = useState(true)
+  useSeo({ title: article?.title, description: article?.excerpt, image: article?.coverImage })
 
   useEffect(() => {
     getArticleBySlug(slug).then(setArticle).catch(() => {}).finally(() => setLoading(false))

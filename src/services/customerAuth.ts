@@ -35,10 +35,14 @@ async function syncProfile(accessToken?: string) {
   } catch { /* non-critical */ }
 }
 
+// Where emails from Supabase (verify / reset) should send people back to.
+// Set VITE_SITE_URL in Vercel to force your real domain; otherwise the current address is used.
+export const siteUrl = () => ((import.meta as any).env?.VITE_SITE_URL || window.location.origin).replace(/\/$/, '')
+
 export async function registerCustomer(email: string, password: string, displayName: string, phone = '') {
   try {
     const { data, error } = await getSupabase().auth.signUp({
-      email: email.trim(), password, options: { data: { displayName: displayName.trim(), phone } },
+      email: email.trim(), password, options: { data: { displayName: displayName.trim(), phone }, emailRedirectTo: siteUrl() + '/account/profile?welcome=1' },
     })
     if (error) throw error
     if (!data.user) throw new Error('Sign up failed')
@@ -58,7 +62,7 @@ export async function loginCustomer(email: string, password: string) {
 
 export async function resetCustomerPassword(email: string) {
   try {
-    const { error } = await getSupabase().auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + '/login' })
+    const { error } = await getSupabase().auth.resetPasswordForEmail(email.trim(), { redirectTo: siteUrl() + '/reset-password' })
     if (error) throw error
   } catch (error) { throw new Error(authMessage(error)) }
 }

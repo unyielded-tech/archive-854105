@@ -4,8 +4,10 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { OrderView } from '@/components/OrderView'
 import { trackOrder, type StoreOrder } from '@/services/orders'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 export function TrackOrderPage() {
+  useSeo({ title: 'Track your order', noindex: true })
   const params = useParams<{ orderId: string }>()
   const [orderId, setOrderId] = useState(params.orderId || '')
   const [phone, setPhone] = useState('')

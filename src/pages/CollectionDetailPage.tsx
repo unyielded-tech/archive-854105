@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useSeo } from '@/lib/seo'
 import { MainLayout } from '@/layouts/MainLayout'
 import { ProductCard } from '@/components/ProductCard'
 import { getCollectionBySlug, getProducts } from '@/services/firestore'
@@ -11,6 +12,7 @@ export function CollectionDetailPage() {
   const [collection, setCollection] = useState<Collection | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  useSeo({ title: collection?.name, description: collection?.description, image: collection?.heroImage })
 
   useEffect(() => {
     setLoading(true)

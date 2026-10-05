@@ -3,8 +3,10 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { getCollections } from '@/services/firestore'
 import { Link } from 'react-router-dom'
 import type { Collection } from '@/types'
+import { useSeo } from '@/lib/seo'
 
 export function CollectionsPage() {
+  useSeo({ title: 'Collections' })
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
 

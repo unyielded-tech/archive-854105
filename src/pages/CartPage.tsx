@@ -8,8 +8,10 @@ import { applyCoupon } from '@/services/firestore'
 import { inr, imageOf, couponDiscount, shippingFor, FREE_SHIPPING_ABOVE } from '@/lib/format'
 import type { Coupon } from '@/types'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 export function CartPage() {
+  useSeo({ title: 'Shopping bag', noindex: true })
   const navigate = useNavigate()
   const items = useCartStore((s) => s.items)
   const couponCode = useCartStore((s) => s.couponCode)
@@ -112,7 +114,16 @@ export function CartPage() {
                 <div className="sum-row"><span>Subtotal</span><span>{inr(subtotal)}</span></div>
                 {discount > 0 && <div className="sum-row green"><span>Discount</span><span>−{inr(discount)}</span></div>}
                 <div className="sum-row"><span>Delivery</span><span>{shipping === 0 ? 'Free' : inr(shipping)}</span></div>
-                {shipping > 0 && <p className="st-sub" style={{ fontSize: '.74rem', margin: '2px 0 0' }}>Add {inr(FREE_SHIPPING_ABOVE + 1 - (subtotal - discount))} more for free delivery</p>}
+                {(() => {
+                  const left = FREE_SHIPPING_ABOVE + 1 - (subtotal - discount)
+                  const pct = Math.min(100, Math.round(((subtotal - discount) / (FREE_SHIPPING_ABOVE + 1)) * 100))
+                  return (
+                    <div style={{ margin: '6px 0 2px' }}>
+                      <div className="gap-bar"><i style={{ width: `${pct}%` }} /></div>
+                      <p className="st-sub" style={{ fontSize: '.74rem', margin: 0 }}>{left > 0 ? `Add ${inr(left)} more for free delivery` : 'You have unlocked free delivery'}</p>
+                    </div>
+                  )
+                })()}
                 <div className="sum-row total"><span>Total</span><span>{inr(total)}</span></div>
               </div>
             </div>

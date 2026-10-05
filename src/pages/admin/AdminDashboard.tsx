@@ -28,9 +28,11 @@ export function AdminDashboard() {
 
   return (
     <AdminShell title="Overview" subtitle={user?.email}>
-      <Link to="/admin/banner" className="adm-btn ghost block" style={{ marginBottom: 20, textDecoration: 'none' }}>
-        Edit homepage banner
-      </Link>
+      <div className="adm-two" style={{ marginBottom: 12 }}>
+        <Link to="/admin/banner" className="adm-btn ghost" style={{ textDecoration: 'none' }}>Homepage banner</Link>
+        <Link to="/admin/coupons" className="adm-btn ghost" style={{ textDecoration: 'none' }}>Coupons</Link>
+      </div>
+      <Link to="/admin/reviews" className="adm-btn ghost block" style={{ marginBottom: 20, textDecoration: 'none' }}>Customer reviews</Link>
       {loading ? (
         <div className="adm-empty">Loading…</div>
       ) : failed ? (

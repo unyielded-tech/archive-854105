@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Menu, X, Search, User, ShoppingBag, Heart } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Menu, X, User, ShoppingBag, Heart } from 'lucide-react'
+import { SearchBox } from '@/components/SearchBox'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import '@/styles/store.css'
@@ -17,23 +18,8 @@ const navLinks = [
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const navigate = useNavigate()
   const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0))
   const wishCount = useWishlistStore((s) => s.ids.length)
-
-  const onSearch = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const q = String(new FormData(e.currentTarget).get('q') || '').trim()
-    navigate(q ? `/shop?search=${encodeURIComponent(q)}` : '/shop')
-    setMenuOpen(false)
-  }
-
-  const searchBox = (
-    <form onSubmit={onSearch} className="hd-search" role="search">
-      <Search size={16} />
-      <input name="q" placeholder="Search for shirts, tees, jackets…" autoComplete="off" />
-    </form>
-  )
 
   return (
     <header className="hd">
@@ -55,7 +41,7 @@ export function Header() {
             ))}
           </nav>
 
-          <div className="hd-search-wrap hd-search-desktop">{searchBox}</div>
+          <div className="hd-search-wrap hd-search-desktop"><SearchBox /></div>
 
           <div className="hd-icons">
             <Link to="/account" className="hd-icon" aria-label="Account"><User size={21} /></Link>
@@ -70,7 +56,7 @@ export function Header() {
           </div>
         </div>
 
-        <div className="hd-search-mobile">{searchBox}</div>
+        <div className="hd-search-mobile"><SearchBox onDone={() => setMenuOpen(false)} /></div>
       </div>
 
       {menuOpen && (

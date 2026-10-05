@@ -48,6 +48,8 @@ export interface Address {
 
 export interface Product {
   id: string
+  rating?: number
+  reviewCount?: number
   slug: string
   name: string
   shortDescription: string

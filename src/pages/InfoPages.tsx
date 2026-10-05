@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 import { MainLayout } from '@/layouts/MainLayout'
+import { useSeo } from '@/lib/seo'
 import { media } from '@/config/media'
 import { FREE_SHIPPING_ABOVE, SHIPPING, inr } from '@/lib/format'
 import '@/styles/store.css'
 
 function Doc({ title, intro, children }: { title: string; intro?: string; children: ReactNode }) {
+  useSeo({ title, description: intro })
   return (
     <MainLayout>
       <div className="st-wrap">

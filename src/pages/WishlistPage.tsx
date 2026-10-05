@@ -6,8 +6,10 @@ import { getProducts } from '@/services/firestore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import type { Product } from '@/types'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 export function WishlistPage() {
+  useSeo({ title: 'Wishlist', noindex: true })
   const ids = useWishlistStore((s) => s.ids)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)

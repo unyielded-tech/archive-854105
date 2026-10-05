@@ -1,7 +1,9 @@
 import { MainLayout } from '@/layouts/MainLayout'
 import { Mail, Phone, MapPin } from 'lucide-react'
+import { useSeo } from '@/lib/seo'
 
 export function AboutPage() {
+  useSeo({ title: 'About us' })
   return (
     <MainLayout>
       <div className="container py-12">

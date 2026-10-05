@@ -5,8 +5,10 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { OrderView } from '@/components/OrderView'
 import { trackOrder, LAST_ORDER_KEY, type StoreOrder } from '@/services/orders'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 export function OrderConfirmationPage() {
+  useSeo({ title: 'Order confirmed', noindex: true })
   const { orderId = '' } = useParams<{ orderId: string }>()
   const [order, setOrder] = useState<StoreOrder | null>(null)
   const [error, setError] = useState('')

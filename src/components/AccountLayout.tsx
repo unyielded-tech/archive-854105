@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { MainLayout } from '@/layouts/MainLayout'
 import { useCustomer } from '@/lib/useCustomer'
+import { useSeo } from '@/lib/seo'
 import '@/styles/store.css'
 
 const links = [
@@ -31,6 +32,7 @@ export function SignInGate() {
 // Wraps every account page: handles sign-in, the side menu (desktop) and the back link (phone).
 export function AccountLayout({ title, subtitle, home = false, children }: { title: string; subtitle?: string; home?: boolean; children: (user: { uid: string; email: string | null; displayName: string }) => ReactNode }) {
   const { user, loading } = useCustomer()
+  useSeo({ title, noindex: true })
 
   if (loading) return <MainLayout><div className="st-empty" style={{ minHeight: '50vh' }}>Loading…</div></MainLayout>
   if (!user) return <MainLayout><SignInGate /></MainLayout>

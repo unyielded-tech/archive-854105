@@ -1,0 +1,10 @@
+{
+  "name": "ARCHIVE 854105",
+  "short_name": "ARCHIVE",
+  "description": "Premium luxury streetwear from Katihar, Bihar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F4EF",
+  "theme_color": "#F7F4EF",
+  "icons": [{ "src": "/archive-logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

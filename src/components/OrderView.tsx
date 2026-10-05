@@ -4,7 +4,8 @@ import toast from 'react-hot-toast'
 import { Copy, Printer, MessageCircle } from 'lucide-react'
 import { inr } from '@/lib/format'
 import { media } from '@/config/media'
-import { cancelOrder, type StoreOrder } from '@/services/orders'
+import { cancelOrder, retryPayment, verifyPayment, type StoreOrder } from '@/services/orders'
+import { openRazorpay } from '@/lib/razorpay'
 import { CANCELLABLE, statusInfo, stageTime, shortDate, dateTime } from '@/lib/orderStatus'
 import '@/styles/store.css'
 
@@ -37,6 +38,23 @@ export function OrderView({ order, phone, onUpdated }: { order: StoreOrder; phon
   const itemsTotal = order.items.reduce((n, i) => n + i.quantity, 0)
   const help = `https://wa.me/${media.whatsapp}?text=${encodeURIComponent(`Hello ARCHIVE 854105, I need help with order ${order.orderId}.`)}`
   const returnMsg = `https://wa.me/${media.whatsapp}?text=${encodeURIComponent(`Hello ARCHIVE 854105, I want to return/exchange an item from order ${order.orderId}.`)}`
+
+  const needsPayment = order.paymentMethod === 'razorpay' && order.paymentStatus !== 'completed' && order.status !== 'cancelled'
+  const payNow = async () => {
+    setBusy(true)
+    try {
+      const { razorpay } = await retryPayment(order.orderId, phone)
+      const result = await openRazorpay(razorpay, { name: order.customer.name, phone: order.customer.phone, email: order.customer.email, description: `Order ${order.orderId}` })
+      if (!result) { toast('Payment not completed'); return }
+      const updated = await verifyPayment({ orderId: order.orderId, ...result })
+      toast.success('Payment received')
+      onUpdated?.(updated)
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not complete the payment')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const doCancel = async () => {
     setBusy(true)
@@ -106,7 +124,7 @@ export function OrderView({ order, phone, onUpdated }: { order: StoreOrder; phon
         <div className="sum-row"><span>Delivery charges</span><span>{order.shipping === 0 ? 'Free' : inr(order.shipping)}</span></div>
         <div className="sum-row total"><span>Total amount</span><span>{inr(order.total)}</span></div>
         <p className="st-sub" style={{ margin: '8px 0 0', fontSize: '.78rem' }}>
-          Payment: {order.paymentMethod === 'cod' ? 'Cash on delivery' : order.paymentMethod} — {order.paymentStatus === 'completed' ? 'paid' : 'pay when it arrives'}
+          Payment: {order.paymentMethod === 'cod' ? 'Cash on delivery — pay when it arrives' : order.paymentStatus === 'completed' ? 'Paid online' : 'Online payment pending'}
         </p>
       </div>
 
@@ -126,6 +144,7 @@ export function OrderView({ order, phone, onUpdated }: { order: StoreOrder; phon
       <div className="sec-box">
         <h2>Need something?</h2>
         <div style={{ display: 'grid', gap: 8 }}>
+          {needsPayment && <button className="st-btn block" onClick={payNow} disabled={busy}>{busy ? 'Please wait…' : `Pay ${inr(order.total)} now`}</button>}
           {canCancel && !cancelling && <button className="st-btn ghost block" onClick={() => setCancelling(true)}>Cancel order</button>}
           {cancelling && (
             <div className="ov-cancel">
@@ -160,7 +179,7 @@ export function OrderView({ order, phone, onUpdated }: { order: StoreOrder; phon
           </tbody>
         </table>
         <p>Subtotal: {inr(order.subtotal)}{order.discount > 0 ? ` · Discount: −${inr(order.discount)}` : ''} · Delivery: {order.shipping === 0 ? 'Free' : inr(order.shipping)}</p>
-        <p><b>Total: {inr(order.total)}</b> ({order.paymentMethod === 'cod' ? 'Cash on delivery' : order.paymentMethod})</p>
+        <p><b>Total: {inr(order.total)}</b> ({order.paymentMethod === 'cod' ? 'Cash on delivery' : order.paymentStatus === 'completed' ? 'Paid online' : 'Online payment pending'})</p>
       </div>
     </div>
   )

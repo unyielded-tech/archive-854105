@@ -7,11 +7,13 @@ import { getProducts } from '@/services/firestore'
 import type { Product } from '@/types'
 import { inr } from '@/lib/format'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 const priceOf = (p: Product) => (p.salePrice && p.salePrice > 0 && p.salePrice < p.price ? p.salePrice : p.price)
 const NEW_DAYS = 30
 
 export function ShopPage() {
+  useSeo({ title: 'Shop', description: 'Browse all ARCHIVE 854105 shirts, tees and streetwear. Filter by size and price.' })
   const [params, setParams] = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)

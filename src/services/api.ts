@@ -416,3 +416,54 @@ export async function updateOrder(id: string, changes: Record<string, unknown>):
     body: JSON.stringify(changes),
   })
 }
+
+
+// ============================================
+// COUPONS (admin) + REVIEWS (admin) + ORDER EXPORT
+// ============================================
+
+export interface AdminCoupon {
+  id: string
+  code: string
+  type: 'percentage' | 'fixed'
+  value: number
+  minOrderAmount?: number
+  maxDiscount?: number | null
+  usageLimit?: number | null
+  usedCount?: number
+  startDate?: string | null
+  endDate?: string | null
+  active: boolean
+}
+
+export async function listCoupons(): Promise<{ coupons: AdminCoupon[] }> {
+  return apiFetch('/admin/coupons')
+}
+export async function saveCoupon(id: string | null, body: Record<string, unknown>): Promise<{ message?: string }> {
+  return apiFetch(id ? `/admin/coupons/${id}` : '/admin/coupons', { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) })
+}
+export async function removeCoupon(id: string): Promise<{ message: string }> {
+  return apiFetch(`/admin/coupons/${id}`, { method: 'DELETE' })
+}
+
+export interface AdminReview { id: string; productId: string; productName: string; name: string; rating: number; title: string; body: string; hidden?: boolean; createdAt: string }
+export async function listReviews(): Promise<{ reviews: AdminReview[] }> {
+  return apiFetch('/admin/reviews')
+}
+export async function setReviewHidden(id: string, hidden: boolean): Promise<{ message: string }> {
+  return apiFetch(`/admin/reviews/${id}`, { method: 'PUT', body: JSON.stringify({ hidden }) })
+}
+export async function removeReview(id: string): Promise<{ message: string }> {
+  return apiFetch(`/admin/reviews/${id}`, { method: 'DELETE' })
+}
+
+// Every order, newest first (loads page by page).
+export async function getAllOrders(): Promise<any[]> {
+  const all: any[] = []
+  for (let page = 1; page < 30; page++) {
+    const data: any = await apiFetch(`/admin/orders?page=${page}&limit=100`)
+    all.push(...(data.orders || []))
+    if (!data.hasMore) break
+  }
+  return all
+}

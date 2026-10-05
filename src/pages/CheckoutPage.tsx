@@ -4,7 +4,10 @@ import toast from 'react-hot-toast'
 import { MainLayout } from '@/layouts/MainLayout'
 import { useCartStore } from '@/store/cartStore'
 import { applyCoupon } from '@/services/firestore'
-import { placeOrder, LAST_ORDER_KEY } from '@/services/orders'
+import { placeOrder, verifyPayment, getConfig, LAST_ORDER_KEY } from '@/services/orders'
+import { openRazorpay } from '@/lib/razorpay'
+import { trackEvent } from '@/lib/analytics'
+import { useSeo } from '@/lib/seo'
 import { getAccount, addAddress, type SavedAddress } from '@/services/account'
 import { useCustomer } from '@/lib/useCustomer'
 import { inr, imageOf, couponDiscount, shippingFor, SHIPPING } from '@/lib/format'
@@ -30,6 +33,10 @@ export function CheckoutPage() {
   const [saved, setSaved] = useState<SavedAddress[]>([])
   const [pick, setPick] = useState('')
   const [saveAddr, setSaveAddr] = useState(true)
+  const [pay, setPay] = useState<'cod' | 'online'>('cod')
+  const [online, setOnline] = useState(false)
+  const [note, setNote] = useState('')
+  useSeo({ title: 'Checkout', noindex: true })
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
 
@@ -50,6 +57,11 @@ export function CheckoutPage() {
     setPick(a.id)
     setForm((f) => ({ ...f, name: a.name, phone: a.phone, street: a.street, landmark: a.landmark, city: a.city, state: a.state, pincode: a.pincode }))
   }
+
+  useEffect(() => {
+    getConfig().then((c) => setOnline(c.onlinePayments))
+    trackEvent('begin_checkout', { value: subtotal })
+  }, [])
 
   // Signed-in shoppers get their profile and saved addresses filled in.
   useEffect(() => {
@@ -89,6 +101,8 @@ export function CheckoutPage() {
         address: { street: form.street.trim(), landmark: form.landmark.trim(), city: form.city.trim(), state: form.state.trim(), pincode: form.pincode.replace(/\D/g, '') },
         shippingMethod: method,
         couponCode: coupon?.code,
+        notes: note.trim(),
+        paymentMethod: pay,
       })
       try {
         localStorage.setItem(SAVED_KEY, JSON.stringify({ ...form, phone }))
@@ -98,6 +112,14 @@ export function CheckoutPage() {
         addAddress({ label: 'Home', name: form.name.trim(), phone, street: form.street.trim(), landmark: form.landmark.trim(), city: form.city.trim(), state: form.state.trim(), pincode: form.pincode.replace(/\D/g, ''), isDefault: saved.length === 0 }).catch(() => {})
       }
       clearCart()
+      if (res.razorpay) {
+        const result = await openRazorpay(res.razorpay, { name: form.name.trim(), phone, email: form.email.trim(), description: `Order ${res.orderId}` })
+        if (result) {
+          try { await verifyPayment({ orderId: res.orderId, ...result }); toast.success('Payment received') } catch (e: any) { toast.error(e?.message || 'We could not confirm the payment yet') }
+        } else {
+          toast('Payment not completed. You can pay from your order page.')
+        }
+      }
       navigate(`/order-confirmation/${res.orderId}`, { replace: true })
     } catch (e: any) {
       toast.error(e?.message || 'Could not place your order')
@@ -181,7 +203,18 @@ export function CheckoutPage() {
 
             <div className="sec-box">
               <h2>Payment</h2>
-              <div className="opt on"><input type="radio" checked readOnly /><span>Cash on delivery — pay when your order arrives</span></div>
+              <label className={`opt ${pay === 'cod' ? 'on' : ''}`}>
+                <input type="radio" checked={pay === 'cod'} onChange={() => setPay('cod')} />
+                <span>Cash on delivery — pay when your order arrives</span>
+              </label>
+              {online && (
+                <label className={`opt ${pay === 'online' ? 'on' : ''}`}>
+                  <input type="radio" checked={pay === 'online'} onChange={() => setPay('online')} />
+                  <span>Pay online — UPI, cards, netbanking, wallets</span>
+                </label>
+              )}
+              <label className="st-label">Order note (optional)</label>
+              <textarea className="st-input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="Anything we should know about delivery?" style={{ minHeight: 64 }} />
             </div>
           </div>
 
@@ -207,7 +240,7 @@ export function CheckoutPage() {
             </div>
 
             <div className="stick-cta">
-              <button className="st-btn block" disabled={busy} onClick={submit}>{busy ? 'Placing order…' : `Place order · ${inr(total)}`}</button>
+              <button className="st-btn block" disabled={busy} onClick={submit}>{busy ? 'Placing order…' : pay === 'online' ? `Pay ${inr(total)}` : `Place order · ${inr(total)}`}</button>
             </div>
           </div>
         </div>

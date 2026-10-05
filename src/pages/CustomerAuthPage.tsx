@@ -5,8 +5,10 @@ import toast from 'react-hot-toast'
 import { MainLayout } from '@/layouts/MainLayout'
 import { loginCustomer, registerCustomer, resetCustomerPassword } from '@/services/customerAuth'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 export function CustomerAuthPage() {
+  useSeo({ title: 'Sign in', noindex: true })
   const location = useLocation()
   const navigate = useNavigate()
   const [mode, setMode] = useState<'login' | 'register'>(location.pathname === '/register' ? 'register' : 'login')

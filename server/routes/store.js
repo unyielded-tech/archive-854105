@@ -48,6 +48,9 @@ storeRoutes.get('/articles', wrap(async (req) => {
 }))
 storeRoutes.get('/articles/:slug', bySlug('articles', true))
 storeRoutes.get('/pages/:slug', bySlug('pages', true))
+storeRoutes.get('/config', wrap(async () => ({
+  onlinePayments: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+})))
 storeRoutes.get('/banner', wrap(async () => {
   const d = await db().collection('settings').doc('homeBanner').get()
   return d.exists ? d.data() : null

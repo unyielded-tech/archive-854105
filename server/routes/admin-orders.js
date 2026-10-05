@@ -1,6 +1,7 @@
 import express from 'express'
 import { adminAuthMiddleware, requireRole } from '../middleware/admin-auth.js'
 import { getFirebaseDb, admin } from '../lib/firebase-admin.js'
+import { sendMail, statusMail, siteUrlFrom } from '../lib/mailer.js'
 
 const router = express.Router()
 
@@ -116,6 +117,11 @@ router.put('/:id', requireRole(['admin', 'orders', 'owner']), async (req, res) =
 
     if (events.length) u.timeline = admin.firestore.FieldValue.arrayUnion(...events)
     await ref.update(u)
+
+    if (u.status && cur.customer?.email) {
+      const m = statusMail({ ...cur, ...u }, u.status, siteUrlFrom(req))
+      if (m) await sendMail({ to: cur.customer.email, ...m })
+    }
 
     res.json({ message: 'Order updated' })
   } catch (error) {

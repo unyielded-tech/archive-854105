@@ -3,36 +3,64 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useAdminStore } from '@/store/adminStore'
 import { adminCheckSession } from '@/services/api'
 
-// Pages
-import { HomePage } from '@/pages/HomePage'
-import { ShopPage } from '@/pages/ShopPage'
-import { ProductPage } from '@/pages/ProductPage'
-import { CartPage } from '@/pages/CartPage'
-import { CheckoutPage } from '@/pages/CheckoutPage'
-import { AccountPage } from '@/pages/AccountPage'
-import { AccountOrdersPage, AccountOrderDetailPage } from '@/pages/AccountOrdersPage'
-import { AccountProfilePage, AccountAddressesPage, AccountSecurityPage } from '@/pages/AccountSettingsPages'
-import { CollectionsPage } from '@/pages/CollectionsPage'
-import { ContactPage } from '@/pages/ContactPage'
-import { AboutPage } from '@/pages/AboutPage'
-import { NotFoundPage } from '@/pages/NotFoundPage'
-import { CustomerAuthPage } from '@/pages/CustomerAuthPage'
-import { OrderConfirmationPage } from '@/pages/OrderConfirmationPage'
-import { TrackOrderPage } from '@/pages/TrackOrderPage'
-import { WishlistPage } from '@/pages/WishlistPage'
-import { JournalPage, JournalArticlePage } from '@/pages/JournalPage'
-import { LookbookPage } from '@/pages/LookbookPage'
-import { CollectionDetailPage } from '@/pages/CollectionDetailPage'
-import { FaqPage, ShippingReturnsPage, PrivacyPage, TermsPage } from '@/pages/InfoPages'
-
-// Admin Pages
-import { AdminLogin } from '@/pages/admin/AdminLogin'
-import { AdminDashboard } from '@/pages/admin/AdminDashboard'
-import { AdminProducts } from '@/pages/admin/AdminProducts'
-import { AdminOrders } from '@/pages/admin/AdminOrders'
-import { AdminCustomers } from '@/pages/admin/AdminCustomers'
-import { AdminBanner } from '@/pages/admin/AdminBanner'
+import { lazy, Suspense } from 'react'
+import { useLocation } from 'react-router-dom'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { initAnalytics, trackPage } from '@/lib/analytics'
 import { AdminProtectedRoute } from '@/components/AdminProtectedRoute'
+import { HomePage } from '@/pages/HomePage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
+
+// Every other page loads on demand, so the first visit on a phone stays fast.
+const L = <T extends Record<string, any>>(load: () => Promise<T>, name: keyof T) =>
+  lazy(() => load().then((m) => ({ default: m[name] as any })))
+
+const ShopPage = L(() => import('@/pages/ShopPage'), 'ShopPage')
+const ProductPage = L(() => import('@/pages/ProductPage'), 'ProductPage')
+const CartPage = L(() => import('@/pages/CartPage'), 'CartPage')
+const CheckoutPage = L(() => import('@/pages/CheckoutPage'), 'CheckoutPage')
+const AccountPage = L(() => import('@/pages/AccountPage'), 'AccountPage')
+const AccountOrdersPage = L(() => import('@/pages/AccountOrdersPage'), 'AccountOrdersPage')
+const AccountOrderDetailPage = L(() => import('@/pages/AccountOrdersPage'), 'AccountOrderDetailPage')
+const AccountProfilePage = L(() => import('@/pages/AccountSettingsPages'), 'AccountProfilePage')
+const AccountAddressesPage = L(() => import('@/pages/AccountSettingsPages'), 'AccountAddressesPage')
+const AccountSecurityPage = L(() => import('@/pages/AccountSettingsPages'), 'AccountSecurityPage')
+const CollectionsPage = L(() => import('@/pages/CollectionsPage'), 'CollectionsPage')
+const CollectionDetailPage = L(() => import('@/pages/CollectionDetailPage'), 'CollectionDetailPage')
+const ContactPage = L(() => import('@/pages/ContactPage'), 'ContactPage')
+const AboutPage = L(() => import('@/pages/AboutPage'), 'AboutPage')
+const CustomerAuthPage = L(() => import('@/pages/CustomerAuthPage'), 'CustomerAuthPage')
+const ResetPasswordPage = L(() => import('@/pages/ResetPasswordPage'), 'ResetPasswordPage')
+const OrderConfirmationPage = L(() => import('@/pages/OrderConfirmationPage'), 'OrderConfirmationPage')
+const TrackOrderPage = L(() => import('@/pages/TrackOrderPage'), 'TrackOrderPage')
+const WishlistPage = L(() => import('@/pages/WishlistPage'), 'WishlistPage')
+const JournalPage = L(() => import('@/pages/JournalPage'), 'JournalPage')
+const JournalArticlePage = L(() => import('@/pages/JournalPage'), 'JournalArticlePage')
+const LookbookPage = L(() => import('@/pages/LookbookPage'), 'LookbookPage')
+const FaqPage = L(() => import('@/pages/InfoPages'), 'FaqPage')
+const ShippingReturnsPage = L(() => import('@/pages/InfoPages'), 'ShippingReturnsPage')
+const PrivacyPage = L(() => import('@/pages/InfoPages'), 'PrivacyPage')
+const TermsPage = L(() => import('@/pages/InfoPages'), 'TermsPage')
+
+const AdminLogin = L(() => import('@/pages/admin/AdminLogin'), 'AdminLogin')
+const AdminDashboard = L(() => import('@/pages/admin/AdminDashboard'), 'AdminDashboard')
+const AdminProducts = L(() => import('@/pages/admin/AdminProducts'), 'AdminProducts')
+const AdminOrders = L(() => import('@/pages/admin/AdminOrders'), 'AdminOrders')
+const AdminCustomers = L(() => import('@/pages/admin/AdminCustomers'), 'AdminCustomers')
+const AdminBanner = L(() => import('@/pages/admin/AdminBanner'), 'AdminBanner')
+const AdminCoupons = L(() => import('@/pages/admin/AdminCoupons'), 'AdminCoupons')
+const AdminReviews = L(() => import('@/pages/admin/AdminReviews'), 'AdminReviews')
+
+// Scroll to top on every page change and report page views (if analytics is configured).
+function RouteEffects() {
+  const { pathname, search } = useLocation()
+  useEffect(() => { initAnalytics() }, [])
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    trackPage(pathname + search)
+  }, [pathname, search])
+  return null
+}
 
 export function App() {
   const setUser = useAdminStore((state) => state.setUser)
@@ -57,7 +85,10 @@ export function App() {
   }, [setUser, setLoading])
 
   return (
+    <ErrorBoundary>
     <Router>
+      <RouteEffects />
+      <Suspense fallback={<div style={{ minHeight: '60vh' }} />}>
       <Routes>
         {/* Customer Routes */}
         <Route path="/" element={<HomePage />} />
@@ -73,6 +104,7 @@ export function App() {
         <Route path="/account/security" element={<AccountSecurityPage />} />
         <Route path="/login" element={<CustomerAuthPage />} />
         <Route path="/register" element={<CustomerAuthPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
         <Route path="/collections/:slug" element={<CollectionDetailPage />} />
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
@@ -100,12 +132,16 @@ export function App() {
             <Route path="/admin/orders" element={<AdminProtectedRoute><AdminOrders /></AdminProtectedRoute>} />
             <Route path="/admin/customers" element={<AdminProtectedRoute><AdminCustomers /></AdminProtectedRoute>} />
             <Route path="/admin/banner" element={<AdminProtectedRoute><AdminBanner /></AdminProtectedRoute>} />
+            <Route path="/admin/coupons" element={<AdminProtectedRoute><AdminCoupons /></AdminProtectedRoute>} />
+            <Route path="/admin/reviews" element={<AdminProtectedRoute><AdminReviews /></AdminProtectedRoute>} />
           </>
         )}
 
         {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Suspense>
     </Router>
+    </ErrorBoundary>
   )
 }

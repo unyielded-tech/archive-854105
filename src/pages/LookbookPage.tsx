@@ -4,8 +4,10 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { getLookbooks } from '@/services/firestore'
 import type { Lookbook } from '@/types'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 export function LookbookPage() {
+  useSeo({ title: 'Lookbook', description: 'See how ARCHIVE 854105 is worn.' })
   const [books, setBooks] = useState<Lookbook[]>([])
   const [loading, setLoading] = useState(true)
 

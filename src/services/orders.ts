@@ -39,6 +39,7 @@ export interface PlaceOrderInput {
   shippingMethod: 'standard' | 'express'
   couponCode?: string
   notes?: string
+  paymentMethod?: 'cod' | 'online'
 }
 
 export async function authHeader(): Promise<Record<string, string>> {
@@ -57,7 +58,7 @@ async function read(res: Response) {
   return data
 }
 
-export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: string; total: number }> {
+export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: string; total: number; razorpay?: { keyId: string; orderId: string; amount: number } | null }> {
   const res = await fetch('/api/store/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -85,6 +86,29 @@ export async function cancelOrder(orderId: string, opts: { phone?: string; reaso
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({ orderId, phone: opts.phone || '', reason: opts.reason || '' }),
+  })
+  return read(res)
+}
+
+export async function getConfig(): Promise<{ onlinePayments: boolean }> {
+  try {
+    const res = await fetch('/api/store/config')
+    return res.ok ? await res.json() : { onlinePayments: false }
+  } catch {
+    return { onlinePayments: false }
+  }
+}
+
+export async function verifyPayment(body: { orderId: string; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }): Promise<StoreOrder> {
+  const res = await fetch('/api/store/orders/verify-payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  return read(res)
+}
+
+export async function retryPayment(orderId: string, phone?: string): Promise<{ razorpay: { keyId: string; orderId: string; amount: number } }> {
+  const res = await fetch('/api/store/orders/retry-payment', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ orderId, phone: phone || '' }),
   })
   return read(res)
 }

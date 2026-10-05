@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { getAdminOrders, updateOrder } from '@/services/api'
+import { getAdminOrders, updateOrder, getAllOrders } from '@/services/api'
 import { AdminShell } from '@/components/admin/AdminShell'
 
 const STATUSES = ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'delivered', 'cancelled', 'return_requested', 'returned', 'refunded']
@@ -25,6 +25,27 @@ export function AdminOrders() {
   const [status, setStatus] = useState('')
   const [open, setOpen] = useState('')
   const [tracking, setTracking] = useState<Record<string, string>>({})
+
+  const exportCsv = async () => {
+    try {
+      toast('Preparing the file…')
+      const all = await getAllOrders()
+      const q = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`
+      const head = ['Order', 'Date', 'Customer', 'Phone', 'Email', 'Address', 'Items', 'Subtotal', 'Discount', 'Delivery', 'Total', 'Payment', 'Paid', 'Status', 'Tracking']
+      const rows = all.map((o) => [
+        o.orderId, o.createdAt ? new Date(o.createdAt).toLocaleString('en-IN') : '', o.customer?.name, o.customer?.phone, o.customer?.email,
+        [o.address?.street, o.address?.landmark, o.address?.city, o.address?.state, o.address?.pincode].filter(Boolean).join(', '),
+        (o.items || []).map((i: any) => `${i.name}${i.size ? ' (' + i.size + ')' : ''} x${i.quantity}`).join('; '),
+        o.subtotal, o.discount || 0, o.shipping || 0, o.total, o.paymentMethod === 'cod' ? 'COD' : 'Online', o.paymentStatus === 'completed' ? 'Yes' : 'No', o.status, o.trackingNumber || '',
+      ].map(q).join(','))
+      const blob = new Blob(['\ufeff' + [head.map(q).join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `archive-orders-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a); a.click(); a.remove()
+      toast.success(`${all.length} orders exported`)
+    } catch (e: any) { toast.error(e?.message || 'Could not export orders') }
+  }
 
   const fetchPage = useCallback(async (p: number, st: string, append: boolean) => {
     try {
@@ -68,7 +89,10 @@ export function AdminOrders() {
           <button key={f.key} className={`adm-chip ${status === f.key ? 'on' : ''}`} onClick={() => setStatus(f.key)}>{f.label}</button>
         ))}
       </div>
-      <button className="adm-text" onClick={() => fetchPage(1, status, false)}>Refresh</button>
+      <div style={{ display: 'flex', gap: 22 }}>
+        <button className="adm-text" onClick={() => fetchPage(1, status, false)}>Refresh</button>
+        <button className="adm-text" onClick={exportCsv}>Export CSV</button>
+      </div>
 
       {loading ? (
         <div className="adm-empty">Loading…</div>
@@ -95,7 +119,7 @@ export function AdminOrders() {
                   </p>
                   <p style={{ margin: '6px 0 0' }}>
                     <span className={`adm-tag ${o.status === 'pending' ? '' : 'dim'}`}>{o.status === 'pending' ? 'New' : label(o.status)}</span>{' '}
-                    <span className="adm-tag dim">{o.paymentStatus === 'completed' ? 'Paid' : 'COD · unpaid'}</span>
+                    <span className="adm-tag dim">{o.paymentStatus === 'completed' ? 'Paid' : o.paymentMethod === 'cod' ? 'COD · unpaid' : 'Online · unpaid'}</span>
                   </p>
                 </button>
 

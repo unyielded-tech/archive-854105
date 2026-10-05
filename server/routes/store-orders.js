@@ -1,5 +1,7 @@
 import express from 'express'
+import crypto from 'node:crypto'
 import { getFirebaseDb, initializeFirebaseAdmin, admin } from '../lib/firebase-admin.js'
+import { sendMail, orderPlacedMail, ownerAlertMail, siteUrlFrom } from '../lib/mailer.js'
 
 // Public order endpoints: place an order (guest or signed-in), look one up, list my orders.
 const router = express.Router()
@@ -19,6 +21,30 @@ function limited(ip) {
   list.push(now)
   hits.set(ip, list)
   return list.length > 12
+}
+
+
+// ---- optional online payments (Razorpay). Off unless both keys are set in Vercel. ----
+export const razorpayOn = () => !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
+
+async function createRazorpayOrder(total, receipt) {
+  const key = process.env.RAZORPAY_KEY_ID
+  const res = await fetch('https://api.razorpay.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Basic ' + Buffer.from(`${key}:${process.env.RAZORPAY_KEY_SECRET}`).toString('base64'),
+    },
+    body: JSON.stringify({ amount: Math.round(total * 100), currency: 'INR', receipt, notes: { orderId: receipt } }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data.id) throw new Error(data?.error?.description || `Razorpay error ${res.status}`)
+  return { keyId: key, orderId: data.id, amount: data.amount }
+}
+
+const sigOk = (a, b) => {
+  const x = Buffer.from(String(a)); const y = Buffer.from(String(b))
+  return x.length === y.length && crypto.timingSafeEqual(x, y)
 }
 
 async function userFromToken(req) {
@@ -170,6 +196,15 @@ router.post('/', async (req, res) => {
     const orderId = await newOrderId()
     const now = new Date().toISOString()
 
+    const online = b.paymentMethod === 'online' && razorpayOn()
+    let razorpay = null
+    if (online) {
+      try { razorpay = await createRazorpayOrder(total, orderId) } catch (e) {
+        console.error('razorpay order failed:', e.message)
+        return res.status(502).json({ error: 'Online payment is unavailable right now. Please choose cash on delivery.' })
+      }
+    }
+
     const order = {
       orderId,
       customerId: user?.id || '',
@@ -183,11 +218,12 @@ router.post('/', async (req, res) => {
       discount,
       couponCode,
       total,
-      paymentMethod: 'cod',
+      paymentMethod: online ? 'razorpay' : 'cod',
       paymentStatus: 'pending',
+      razorpayOrderId: razorpay?.orderId || '',
       status: 'pending',
       notes: str(b.notes, 300),
-      timeline: [{ status: 'pending', timestamp: now, note: 'Order placed' }],
+      timeline: [{ status: 'pending', timestamp: now, note: online ? 'Order placed, waiting for online payment' : 'Order placed' }],
       createdAt: now,
       updatedAt: now,
     }
@@ -204,7 +240,14 @@ router.post('/', async (req, res) => {
       try { await db().collection('coupons').doc(coupon.id).update({ usedCount: admin.firestore.FieldValue.increment(1) }) } catch { /* ignore */ }
     }
 
-    res.status(201).json({ id: ref.id, orderId, total, status: 'pending' })
+    // Emails are optional; a failure here never loses the order.
+    const site = siteUrlFrom(req)
+    const mails = []
+    if (order.customer.email && !online) { const m = orderPlacedMail(order, site); mails.push(sendMail({ to: order.customer.email, ...m })) }
+    if (process.env.ORDER_NOTIFY_EMAIL) { const m = ownerAlertMail(order, site); mails.push(sendMail({ to: process.env.ORDER_NOTIFY_EMAIL, ...m })) }
+    await Promise.allSettled(mails)
+
+    res.status(201).json({ id: ref.id, orderId, total, status: 'pending', razorpay })
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message })
     console.error('Create order error:', error)
@@ -240,6 +283,73 @@ router.get('/mine', async (req, res) => {
   } catch (error) {
     console.error('My orders error:', error)
     res.status(500).json({ error: 'Could not load your orders' })
+  }
+})
+
+
+// Who may act on an order: its signed-in owner, or someone who knows the phone number on it.
+async function canAccess(req, o) {
+  const user = await userFromToken(req)
+  if (user && (o.customerId === user.id || (user.email && o.customerEmail === user.email.toLowerCase()))) return true
+  const p = last10(req.body?.phone)
+  return p.length === 10 && last10(o.customer?.phone) === p
+}
+
+// POST /api/store/orders/verify-payment  (called by the browser after Razorpay succeeds)
+router.post('/verify-payment', async (req, res) => {
+  try {
+    if (!razorpayOn()) return res.status(400).json({ error: 'Online payments are not enabled' })
+    const { orderId, razorpay_order_id: rpOrder, razorpay_payment_id: rpPay, razorpay_signature: rpSig } = req.body || {}
+    const snap = await db().collection('orders').where('orderId', '==', str(orderId, 40).toUpperCase()).limit(1).get()
+    if (snap.empty) return res.status(404).json({ error: 'Order not found' })
+    const doc = snap.docs[0]
+    const o = doc.data()
+    if (!rpOrder || !rpPay || !rpSig || o.razorpayOrderId !== rpOrder) return res.status(400).json({ error: 'Payment details do not match this order' })
+
+    const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${rpOrder}|${rpPay}`).digest('hex')
+    if (!sigOk(expected, rpSig)) return res.status(400).json({ error: 'Payment could not be verified' })
+
+    if (o.paymentStatus !== 'completed') {
+      const now = new Date().toISOString()
+      await doc.ref.update({
+        paymentStatus: 'completed',
+        paymentId: String(rpPay),
+        status: o.status === 'pending' ? 'confirmed' : o.status,
+        updatedAt: now,
+        timeline: admin.firestore.FieldValue.arrayUnion({ status: 'payment received', timestamp: now, note: `Razorpay ${rpPay}` }),
+      })
+      if (o.customer?.email) {
+        const m = orderPlacedMail({ ...o, paymentStatus: 'completed' }, siteUrlFrom(req))
+        await sendMail({ to: o.customer.email, ...m })
+      }
+    }
+    const fresh = await doc.ref.get()
+    res.json(publicOrder(fresh.data()))
+  } catch (error) {
+    console.error('Verify payment error:', error)
+    res.status(500).json({ error: 'Could not verify the payment' })
+  }
+})
+
+// POST /api/store/orders/retry-payment  { orderId, phone? }  — pay again for an unpaid online order
+router.post('/retry-payment', async (req, res) => {
+  try {
+    if (!razorpayOn()) return res.status(400).json({ error: 'Online payments are not enabled' })
+    if (limited(`r${req.ip}`)) return res.status(429).json({ error: 'Too many tries. Please wait a few minutes.' })
+    const snap = await db().collection('orders').where('orderId', '==', str(req.body?.orderId, 40).toUpperCase()).limit(1).get()
+    if (snap.empty) return res.status(404).json({ error: 'Order not found' })
+    const doc = snap.docs[0]
+    const o = doc.data()
+    if (!(await canAccess(req, o))) return res.status(403).json({ error: 'We could not verify this order' })
+    if (o.paymentMethod !== 'razorpay' || o.paymentStatus === 'completed' || o.status === 'cancelled') {
+      return res.status(409).json({ error: 'This order does not need a payment' })
+    }
+    const razorpay = await createRazorpayOrder(o.total, o.orderId)
+    await doc.ref.update({ razorpayOrderId: razorpay.orderId, updatedAt: new Date().toISOString() })
+    res.json({ razorpay })
+  } catch (error) {
+    console.error('Retry payment error:', error)
+    res.status(502).json({ error: 'Could not start the payment. Please try again.' })
   }
 })
 
@@ -289,10 +399,7 @@ router.post('/cancel', async (req, res) => {
     const doc = snap.docs[0]
     const o = doc.data()
 
-    const user = await userFromToken(req)
-    const owner = user && (o.customerId === user.id || (user.email && o.customerEmail === user.email.toLowerCase()))
-    const phoneOk = last10(req.body?.phone).length === 10 && last10(o.customer?.phone) === last10(req.body?.phone)
-    if (!owner && !phoneOk) return res.status(403).json({ error: 'We could not verify this order' })
+    if (!(await canAccess(req, o))) return res.status(403).json({ error: 'We could not verify this order' })
 
     if (!CANCELLABLE.includes(o.status)) {
       return res.status(409).json({ error: o.status === 'cancelled' ? 'This order is already cancelled' : 'This order has already been shipped and cannot be cancelled. Contact us for a return.' })
@@ -319,6 +426,9 @@ router.post('/cancel', async (req, res) => {
     })
 
     const fresh = await doc.ref.get()
+    if (process.env.ORDER_NOTIFY_EMAIL) {
+      await sendMail({ to: process.env.ORDER_NOTIFY_EMAIL, subject: `Order ${o.orderId} cancelled by customer`, html: `<p>Order <b>${o.orderId}</b> was cancelled by ${String(o.customer?.name || 'the customer').replace(/[<>&]/g, '')}.${reason ? ' Reason: ' + reason.replace(/[<>&]/g, '') : ''}</p>` })
+    }
     res.json(publicOrder(fresh.data()))
   } catch (error) {
     console.error('Cancel order error:', error)

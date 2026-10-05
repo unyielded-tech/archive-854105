@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Heart } from 'lucide-react'
+import { RatingPill } from '@/components/Reviews'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { inr, imageOf } from '@/lib/format'
 import type { Product } from '@/types'
@@ -34,6 +35,7 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="pcard-body">
         {product.category ? <div className="pcard-cat">{product.category}</div> : null}
         <div className="pcard-name">{product.name}</div>
+        {product.reviewCount ? <div style={{ margin: '0 0 4px' }}><RatingPill value={product.rating} count={product.reviewCount} /></div> : null}
         <div className="pcard-price">
           <span className="pcard-now">{inr(price)}</span>
           {onSale && <span className="pcard-was">{inr(product.price)}</span>}

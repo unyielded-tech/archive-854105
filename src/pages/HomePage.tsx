@@ -11,8 +11,10 @@ import { getProducts, getCollections, getHomeBanner, type HomeBannerData } from 
 import { imageOf, FREE_SHIPPING_ABOVE, inr } from '@/lib/format'
 import type { Product, Collection } from '@/types'
 import '@/styles/store.css'
+import { useSeo } from '@/lib/seo'
 
 export function HomePage() {
+  useSeo({ description: 'Premium luxury streetwear from Katihar, Bihar. New arrivals, deals and cash on delivery.' })
   const [products, setProducts] = useState<Product[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
